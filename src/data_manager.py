@@ -19,10 +19,11 @@ class DataLogger:
                     "head_tilt",
                     "keyboard_count",
                     "mouse_clicks",
-                    "confidence"
+                    "confidence",
+                    "face_detected"
                 ])
 
-    def log(self, fatigue_score, head_tilt, keyboard_count, mouse_clicks, confidence):
+    def log(self, fatigue_score, head_tilt, keyboard_count, mouse_clicks, confidence, face_detected=False):
         """1分ごとにログを安全に追記"""
         with self.lock:
             try:
@@ -34,7 +35,8 @@ class DataLogger:
                         head_tilt,
                         keyboard_count,
                         mouse_clicks,
-                        confidence
+                        confidence,
+                        int(face_detected)
                     ])
                     f.flush()
                     os.fsync(f.fileno())
