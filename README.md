@@ -76,3 +76,6 @@ MFTF/
 ・必要なライブラリをインストールする
 >> cd MFTF
 >> pip install -r requirements.txt
+
+・以下のコマンドを実行して動かしてみる
+>> python -m src.main
