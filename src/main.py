@@ -1,42 +1,45 @@
-from src.data.collector.keyboard_monitor import KeyboardMonitor
-from src.data.collector.mouse_monitor import MouseMonitor
-from src.data.collector.webcam_monitor import WebcamMonitor
-from src.data.preprocessor.feature_extractor import FeatureExtractor
-from src.model.fatigue_regressor import FatigueRegressor
-from src.interface.notifier import Notifier
-from src.utils.logger import setup_logger
-import time
+import time, threading, random
+from src.data_manager import DataLogger
+from src.gui import FatigueGUI
+from src.input_monitor import InputMonitor
+import tkinter as tk
 
-logger = setup_logger()
+def collect_data(input_monitor):
+    """1分ごとに入力数を集計し、疲労スコアを計算"""
+    keyboard_count, mouse_clicks = input_monitor.get_counts_and_reset()
 
-def main():
-    logger.info("🔧 Fatigue Monitor 起動中...")
+    # 仮の疲労スコア（ランダムに加味）
+    fatigue_score = 40 + (keyboard_count + mouse_clicks) * 0.2 + random.uniform(-2, 2)
+    head_tilt = random.uniform(5, 15)
+    confidence = random.uniform(0.85, 0.95)
 
-    keyboard = KeyboardMonitor()
-    mouse = MouseMonitor()
-    webcam = WebcamMonitor()
-    feature_extractor = FeatureExtractor()
-    model = FatigueRegressor()
-    notifier = Notifier()
+    return {
+        "fatigue_score": round(fatigue_score, 2),
+        "head_tilt": round(head_tilt, 2),
+        "keyboard_count": keyboard_count,
+        "mouse_clicks": mouse_clicks,
+        "confidence": round(confidence, 2)
+    }
 
-    try:
-        while True:
-            kb_count = keyboard.get_activity_count()
-            mouse_count = mouse.get_activity_count()
-            face_score = webcam.get_fatigue_indicator()
-
-            features = feature_extractor.extract(kb_count, mouse_count, face_score)
-            fatigue = model.predict(features)
-
-            logger.info(f"📊 Current fatigue score: {fatigue:.2f}")
-
-            if fatigue > 70:
-                notifier.notify_rest(fatigue)
-
-            time.sleep(60)  # 1分間隔で更新
-
-    except KeyboardInterrupt:
-        logger.info("🛑 モニタリングを終了しました。")
+def monitoring_loop(logger, input_monitor):
+    """1分ごとのデータ収集・保存ループ"""
+    while True:
+        data = collect_data(input_monitor)
+        logger.log(**data)
+        print(f"[INFO] データ保存完了: {data}")
+        time.sleep(60)
 
 if __name__ == "__main__":
-    main()
+    logger = DataLogger()
+    input_monitor = InputMonitor()
+    input_monitor.start()  # 監視開始
+
+    t = threading.Thread(target=monitoring_loop, args=(logger, input_monitor), daemon=True)
+    t.start()
+
+    root = tk.Tk()
+    gui = FatigueGUI(root, logger.file_path)
+    root.mainloop()
+
+    # GUI終了後のクリーンアップ
+    input_monitor.stop()
