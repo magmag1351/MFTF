@@ -1,12 +1,15 @@
 # src/fatigue_estimator.py
 import numpy as np
+import joblib
 
 class FatigueEstimator:
-    def __init__(self):
-        """
-        疲労スコア推定モデル（初期版: 簡易線形モデル）
-        ※後に学習済みモデルに置き換え可能
-        """
+    def __init__(self, model_path="models/fatigue_model.pkl"):
+        try:
+            self.model = joblib.load(model_path)
+            print(f"[INFO] モデルを読み込みました: {model_path}")
+        except Exception:
+            self.model = None
+            print("[WARN] モデルが見つかりませんでした。predict()は無効です。")
         self.weights = {
             "head_tilt": 0.4,        # 首の傾きが大きいほど疲労上昇
             "keyboard_count": -0.2,  # 入力量が多いほど集中している可能性
@@ -26,4 +29,9 @@ class FatigueEstimator:
         )
 
         fatigue_score = np.clip(50 + score * 50, 0, 100)
+        return round(float(fatigue_score), 2)
+    
+    def  predict(self, head_tilt, keyboard_count, mouse_clicks, confidence):
+        X = np.array([[head_tilt, keyboard_count, mouse_clicks, confidence]])
+        fatigue_score = self.model.predict(X)[0]
         return round(float(fatigue_score), 2)

@@ -6,7 +6,7 @@ from src.gui import FatigueGUI
 from src.input_monitor import InputMonitor
 from src.face_monitor import FaceMonitor
 from src.fatigue_estimator import FatigueEstimator
-
+from fatigue_estimator import FatigueEstimator
 
 def collect_data(input_monitor, face_monitor, estimator):
     """1分ごとに入力・顔データを集計して疲労スコアを算出"""
