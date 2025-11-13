@@ -16,6 +16,7 @@ class DataLogger:
                 writer.writerow([
                     "timestamp",
                     "fatigue_score",
+                    "predicted_score",   # ← 新たに追加
                     "head_tilt",
                     "keyboard_count",
                     "mouse_clicks",
@@ -23,7 +24,16 @@ class DataLogger:
                     "face_detected"
                 ])
 
-    def log(self, fatigue_score, head_tilt, keyboard_count, mouse_clicks, confidence, face_detected=False):
+    def log(
+        self,
+        fatigue_score,
+        head_tilt,
+        keyboard_count,
+        mouse_clicks,
+        confidence,
+        face_detected=False,
+        predicted_score=None
+    ):
         """1分ごとにログを安全に追記"""
         with self.lock:
             try:
@@ -32,6 +42,7 @@ class DataLogger:
                     writer.writerow([
                         datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                         fatigue_score,
+                        predicted_score if predicted_score is not None else "",  # ← 対応済み
                         head_tilt,
                         keyboard_count,
                         mouse_clicks,
