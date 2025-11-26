@@ -1,3 +1,4 @@
+import windows
 import cv2
 import mediapipe as mp
 import numpy as np
@@ -154,6 +155,15 @@ class FatigueApp:
         self.fig.canvas.mpl_connect('close_event', self.on_close)
         self.is_running = True
 
+        self.last_alert_time = 0
+        self.alert_cooldown = 3.0
+
+    def play_warning_sound(self):
+        try:
+            windows.Beep(1000, 500)
+        except ImportError:
+            print("Warning sound not available on this platform.")
+
     def calculate_current_fatigue(self, keys, clicks, pitch):
         activity_score = min((keys * 5) + (clicks * 10), 50) 
         
@@ -207,6 +217,15 @@ class FatigueApp:
             print(f"現在のPitch角度: {pitch:.2f}")
 
             f_curr = self.calculate_current_fatigue(keys, clicks, pitch)
+
+            # 90%超え判定と警告音ロジック
+            if f_curr > 90:
+                current_time = time.time()
+                # 前回の警告から指定時間っ経過しているかを確認
+                if current_time - self.last_alert_time > self.alert_cooldown:
+                    threading.Thread(target=self.play_warning_sound, daemon=True).start()
+                    self.last_alert_time = current_time
+                    print("[WARN] 疲労度が90%を超えました。")
             
             self.time_counter += 1
             self.timestamps.append(self.time_counter)
