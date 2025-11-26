@@ -1,9 +1,9 @@
-import windows
 import cv2
 import mediapipe as mp
 import numpy as np
 import time
 import threading
+import winsound  # Windows標準サウンドライブラリ
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from pynput import keyboard, mouse
@@ -20,6 +20,7 @@ class InputMonitor:
         self.lock = threading.Lock()
         self.running = True
         
+        # 入力監視リスナーの起動
         self.kb_listener = keyboard.Listener(on_press=self._on_press)
         self.mouse_listener = mouse.Listener(on_click=self._on_click)
         
@@ -48,7 +49,7 @@ class InputMonitor:
         self.mouse_listener.stop()
 
 # ==========================================
-# 2. FACE & POSE ESTIMATION
+# 2. FACE & POSE ESTIMATION (With Smoothing)
 # ==========================================
 class FaceMonitor:
     def __init__(self):
@@ -59,6 +60,13 @@ class FaceMonitor:
             refine_landmarks=True
         )
         self.cap = cv2.VideoCapture(0)
+        
+        # 【改善】カメラ行列計算のキャッシュ用
+        self.cam_matrix = None
+        self.dist_matrix = np.zeros((4, 1), dtype=np.float64)
+        
+        # 【改善】入力値の平滑化用（直近5フレームの平均をとる）
+        self.pitch_history = deque(maxlen=5)
 
     def get_head_pose(self):
         success, image = self.cap.read()
@@ -69,10 +77,15 @@ class FaceMonitor:
         img_h, img_w, _ = image.shape
         results = self.face_mesh.process(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
-        # 【修正箇所】初期値を 0 ではなく None に設定
-        # これにより、顔が見つからない場合に明確に「不在」として扱える
         pitch = None
         
+        # 初回のみカメラ行列を計算
+        if self.cam_matrix is None:
+            focal_length = 1 * img_w
+            self.cam_matrix = np.array([ [focal_length, 0, img_h / 2],
+                                         [0, focal_length, img_w / 2],
+                                         [0, 0, 1]])
+
         if results.multi_face_landmarks:
             for face_landmarks in results.multi_face_landmarks:
                 face_3d = []
@@ -88,24 +101,26 @@ class FaceMonitor:
                 face_2d = np.array(face_2d, dtype=np.float64)
                 face_3d = np.array(face_3d, dtype=np.float64)
 
-                focal_length = 1 * img_w
-                cam_matrix = np.array([ [focal_length, 0, img_h / 2],
-                                        [0, focal_length, img_w / 2],
-                                        [0, 0, 1]])
-                dist_matrix = np.zeros((4, 1), dtype=np.float64)
-
-                success, rot_vec, trans_vec = cv2.solvePnP(face_3d, face_2d, cam_matrix, dist_matrix)
+                success, rot_vec, trans_vec = cv2.solvePnP(face_3d, face_2d, self.cam_matrix, self.dist_matrix)
                 
                 if success:
                     rmat, jac = cv2.Rodrigues(rot_vec)
                     angles, mtxR, mtxQ, Qx, Qy, Qz = cv2.RQDecomp3x3(rmat)
                     
-                    pitch = angles[0]
+                    raw_pitch = angles[0]
                     
-                    # Visual Guide
+                    # 【改善】Pitchの移動平均を計算
+                    self.pitch_history.append(raw_pitch)
+                    pitch = sum(self.pitch_history) / len(self.pitch_history)
+                    
+                    # Visual Guide (鼻先の線を描画)
                     nose_2d = (int(face_landmarks.landmark[1].x * img_w), int(face_landmarks.landmark[1].y * img_h))
                     p1 = (int(nose_2d[0] + angles[1] * 10), int(nose_2d[1] - angles[0] * 10))
                     cv2.line(image, nose_2d, p1, (255, 0, 0), 3)
+
+        # 顔を見失った場合は履歴をクリア
+        if pitch is None:
+            self.pitch_history.clear()
 
         return pitch, image
 
@@ -113,7 +128,7 @@ class FaceMonitor:
         self.cap.release()
 
 # ==========================================
-# 3. MACHINE LEARNING & APP LOGIC
+# 3. MACHINE LEARNING & APP LOGIC (Complete)
 # ==========================================
 class FatigueApp:
     def __init__(self):
@@ -125,13 +140,17 @@ class FatigueApp:
         self.fatigue_history = deque(maxlen=self.history_len)
         
         self.time_counter = 0
-        
         self.model = LinearRegression()
         
-        self.start_time = time.time()
-        self.update_interval = 1.0
-        self.last_update = time.time()
+        # 【改善】滑らかな変化（慣性）のための変数
+        self.smooth_fatigue = 0.0  
+        self.smoothing_factor = 0.2 # 小さいほど変化がゆっくりになる（0.05〜0.2推奨）
 
+        # 【追加】警告音制御用
+        self.last_alert_time = 0
+        self.alert_cooldown = 3.0 # 警告音のインターバル（秒）
+
+        # グラフ初期設定
         plt.style.use('dark_background')
         self.fig, self.ax = plt.subplots(figsize=(12, 6))
         
@@ -139,39 +158,40 @@ class FatigueApp:
         self.line_pred, = self.ax.plot([], [], 'm--', label='Forecast (+60s)', linewidth=2)
         
         self.ax.set_xlim(-60, 60)
-        self.ax.set_ylim(0, 100)
+        self.ax.set_ylim(0, 100) # 0〜100%
         
-        self.ax.set_title("Fatigue Level: History & Prediction")
+        self.ax.set_title("Fatigue Level Monitor (Smoothed)")
         self.ax.set_xlabel("Time (Seconds)")
         self.ax.set_ylabel("Fatigue Level (%)")
         self.ax.legend(loc='upper left')
         self.ax.grid(True, alpha=0.3)
         
         self.vline = self.ax.axvline(x=0, color='white', alpha=0.5, linestyle=':')
-        
         self.txt_curr = self.ax.text(0, 95, "Current: --", color='cyan', fontsize=12)
         self.txt_pred = self.ax.text(0, 88, "Pred (+60s): --", color='magenta', fontsize=12)
         
         self.fig.canvas.mpl_connect('close_event', self.on_close)
         self.is_running = True
-
-        self.last_alert_time = 0
-        self.alert_cooldown = 3.0
+        
+        self.start_time = time.time()
+        self.last_update = time.time()
+        self.update_interval = 1.0
 
     def play_warning_sound(self):
+        """別スレッドでビープ音を再生"""
         try:
-            windows.Beep(1000, 500)
-        except ImportError:
-            print("Warning sound not available on this platform.")
+            # 1000Hz, 500ms
+            winsound.Beep(1000, 500)
+        except Exception as e:
+            print(f"Sound Error: {e}")
 
     def calculate_current_fatigue(self, keys, clicks, pitch):
         activity_score = min((keys * 5) + (clicks * 10), 50) 
         
         posture_fatigue = 0
-        # 感度が鋭敏すぎるため、少し緩和した閾値に戻すことを推奨しますが、
-        # 現在の設定(-0.1)のままにしてあります。
-        if pitch < -0.1: posture_fatigue = 40
-        elif pitch < -0.02: posture_fatigue = 10
+        # 【修正】最大疲労度が100になるようにペナルティを調整
+        if pitch < -0.1: posture_fatigue = 50 # 強い下向き
+        elif pitch < -0.02: posture_fatigue = 10 # 軽い下向き
             
         base_fatigue = 50 - activity_score 
         return max(0, min(100, base_fatigue + posture_fatigue))
@@ -182,8 +202,9 @@ class FatigueApp:
 
         y = np.array(self.fatigue_history)
         X = np.array(self.timestamps).reshape(-1, 1)
-        
-        self.model.fit(X, y)
+
+        weights = np.exp(np.linspace(-2, 0, len(y)))
+        self.model.fit(X, y, sample_weight=weights)
         
         future_time = np.array([[self.time_counter + 60]])
         prediction = self.model.predict(future_time)
@@ -207,36 +228,38 @@ class FatigueApp:
             
             keys, clicks = self.input_mon.get_and_reset_counts()
             
-            # 【ここが機能するようになります】
-            # FaceMonitorがNoneを返すようになったため、ここに入り、-20（激しい疲労/不在）がセットされる
+            # 顔が見つからない場合（不在/顔隠し）
             if pitch is None:
                 pitch = -20
-                print("Face Lost: Setting Pitch to -20") # 確認用ログ
+                print("Face Lost: Applying max penalty")
             
-            # debug
-            print(f"現在のPitch角度: {pitch:.2f}")
-
-            f_curr = self.calculate_current_fatigue(keys, clicks, pitch)
-
-            # 90%超え判定と警告音ロジック
-            if f_curr > 90:
-                current_time = time.time()
-                # 前回の警告から指定時間っ経過しているかを確認
-                if current_time - self.last_alert_time > self.alert_cooldown:
-                    threading.Thread(target=self.play_warning_sound, daemon=True).start()
-                    self.last_alert_time = current_time
-                    print("[WARN] 疲労度が90%を超えました。")
+            # 1. 瞬間的な目標疲労度を計算
+            target_fatigue = self.calculate_current_fatigue(keys, clicks, pitch)
             
+            # 2. 【改善】慣性をつけて滑らかに変化させる（ローパスフィルタ）
+            # 新しい値 = (今の値 * 0.9) + (目標値 * 0.1)
+            self.smooth_fatigue = (self.smooth_fatigue * (1.0 - self.smoothing_factor)) + (target_fatigue * self.smoothing_factor)
+
+            # 3. リスト更新
             self.time_counter += 1
             self.timestamps.append(self.time_counter)
-            self.fatigue_history.append(f_curr)
+            self.fatigue_history.append(self.smooth_fatigue)
             
+            # 4. 警告判定（滑らかな値で判定するため誤検知が減る）
+            if self.smooth_fatigue >= 90:
+                if current_ts - self.last_alert_time > self.alert_cooldown:
+                    threading.Thread(target=self.play_warning_sound, daemon=True).start()
+                    self.last_alert_time = current_ts
+                    print(f"⚠️ WARNING: Fatigue Critical ({self.smooth_fatigue:.1f}%)")
+
+            # 予測計算
             f_pred_target = self.get_prediction_trajectory()
 
+            # グラフ描画更新
             self.line_current.set_data(self.timestamps, self.fatigue_history)
             
             pred_x = [self.time_counter, self.time_counter + 60]
-            pred_y = [f_curr, f_pred_target]
+            pred_y = [self.smooth_fatigue, f_pred_target]
             self.line_pred.set_data(pred_x, pred_y)
             
             left_limit = self.time_counter - 60
@@ -245,7 +268,7 @@ class FatigueApp:
             
             self.vline.set_xdata([self.time_counter])
             
-            self.txt_curr.set_text(f"Current: {f_curr:.1f}")
+            self.txt_curr.set_text(f"Current: {self.smooth_fatigue:.1f}")
             self.txt_pred.set_text(f"Pred (+60s): {f_pred_target:.1f}")
             
             self.txt_curr.set_position((left_limit + 2, 95))
@@ -265,5 +288,7 @@ class FatigueApp:
             self.on_close(None)
 
 if __name__ == "__main__":
+    print("Starting Fatigue Monitor...")
+    print("Press 'q' on the camera window or close the graph to exit.")
     app = FatigueApp()
     app.run()
