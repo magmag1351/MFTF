@@ -6,6 +6,7 @@ import threading
 import winsound  # Windows標準サウンドライブラリ
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
+from matplotlib.widgets import Button
 from pynput import keyboard, mouse
 from sklearn.linear_model import LinearRegression
 from collections import deque
@@ -150,9 +151,13 @@ class FatigueApp:
         self.last_alert_time = 0
         self.alert_cooldown = 3.0 # 警告音のインターバル（秒）
 
+        # 【追加】離籍モード用
+        self.pause_end_time = 0
+
         # グラフ初期設定
         plt.style.use('dark_background')
         self.fig, self.ax = plt.subplots(figsize=(12, 6))
+        plt.subplots_adjust(right=0.85) # ボタン用のスペースを確保
         
         self.line_current, = self.ax.plot([], [], 'c-', label='History (Past 60s)', linewidth=2)
         self.line_pred, = self.ax.plot([], [], 'm--', label='Forecast (+60s)', linewidth=2)
@@ -169,13 +174,24 @@ class FatigueApp:
         self.vline = self.ax.axvline(x=0, color='white', alpha=0.5, linestyle=':')
         self.txt_curr = self.ax.text(0, 95, "Current: --", color='cyan', fontsize=12)
         self.txt_pred = self.ax.text(0, 88, "Pred (+60s): --", color='magenta', fontsize=12)
+        self.txt_status = self.ax.text(0, 81, "", color='yellow', fontsize=12)
         
+        # 離籍ボタンの追加
+        self.ax_button = plt.axes([0.87, 0.45, 0.1, 0.075]) # [left, bottom, width, height]
+        self.btn_away = Button(self.ax_button, 'Away\n(5min)', color='gray', hovercolor='0.7')
+        self.btn_away.on_clicked(self.on_away_button_click)
+
         self.fig.canvas.mpl_connect('close_event', self.on_close)
         self.is_running = True
         
         self.start_time = time.time()
         self.last_update = time.time()
         self.update_interval = 1.0
+
+    def on_away_button_click(self, event):
+        """離籍ボタンが押された時の処理"""
+        self.pause_end_time = time.time() + 300 # 5分間停止
+        print("Away mode started (5 minutes)")
 
     def play_warning_sound(self):
         """別スレッドでビープ音を再生"""
@@ -226,6 +242,24 @@ class FatigueApp:
         if current_ts - self.last_update > self.update_interval:
             self.last_update = current_ts
             
+            # 離籍モードのチェック
+            remaining_pause = self.pause_end_time - current_ts
+            if remaining_pause > 0:
+                mins, secs = divmod(int(remaining_pause), 60)
+                status_text = f"Away Mode: {mins}:{secs:02d}"
+                self.txt_status.set_text(status_text)
+                
+                # グラフのX軸範囲を更新して、テキスト位置を維持する
+                left_limit = self.time_counter - 60
+                self.txt_status.set_position((left_limit + 2, 81))
+                self.txt_curr.set_position((left_limit + 2, 95))
+                self.txt_pred.set_position((left_limit + 2, 88))
+                
+                return # 計測・更新をスキップ
+
+            # 通常モード
+            self.txt_status.set_text("")
+            
             keys, clicks = self.input_mon.get_and_reset_counts()
             
             # 顔が見つからない場合（不在/顔隠し）
@@ -273,6 +307,7 @@ class FatigueApp:
             
             self.txt_curr.set_position((left_limit + 2, 95))
             self.txt_pred.set_position((left_limit + 2, 88))
+            self.txt_status.set_position((left_limit + 2, 81))
 
     def on_close(self, event):
         self.is_running = False
