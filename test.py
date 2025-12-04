@@ -181,6 +181,11 @@ class FatigueApp:
         self.btn_away = Button(self.ax_button, 'Away\n(5min)', color='gray', hovercolor='0.7')
         self.btn_away.on_clicked(self.on_away_button_click)
 
+        # 再開ボタンの追加
+        self.ax_resume_button = plt.axes([0.87, 0.35, 0.1, 0.075])
+        self.btn_resume = Button(self.ax_resume_button, 'Resume', color='gray', hovercolor='0.7')
+        self.btn_resume.on_clicked(self.on_resume_button_click)
+
         self.fig.canvas.mpl_connect('close_event', self.on_close)
         self.is_running = True
         
@@ -192,6 +197,11 @@ class FatigueApp:
         """離籍ボタンが押された時の処理"""
         self.pause_end_time = time.time() + 300 # 5分間停止
         print("Away mode started (5 minutes)")
+
+    def on_resume_button_click(self, event):
+        """再開ボタンが押された時の処理"""
+        self.pause_end_time = 0
+        print("Away mode cancelled")
 
     def play_warning_sound(self):
         """別スレッドでビープ音を再生"""
