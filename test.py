@@ -1,4 +1,6 @@
 import cv2
+import os
+from ffpyplayer.player import MediaPlayer
 import mediapipe as mp
 import numpy as np
 import time
@@ -129,6 +131,27 @@ class FaceMonitor:
         self.cap.release()
 
 # ==========================================
+# 2.5. BACKGROUND AUDIO PLAYER
+# ==========================================
+class BackgroundAudioPlayer:
+    def __init__(self, video_path):
+        self.video_path = video_path
+        # ff_opts={'t': 'audio'} ensures we strictly prioritize audio logic if needed, 
+        # but MediaPlayer usually handles audio automatically.
+        self.player = MediaPlayer(video_path)
+        
+    def update(self):
+        # ffpyplayer handles audio in its own thread. 
+        # We just need to check for EOF to loop.
+        frame, val = self.player.get_frame()
+        if val == 'eof':
+            # Restart audio
+            self.player.seek(0)
+            
+    def release(self):
+        self.player.close_player()
+
+# ==========================================
 # 3. MACHINE LEARNING & APP LOGIC (Complete)
 # ==========================================
 class FatigueApp:
@@ -153,6 +176,9 @@ class FatigueApp:
 
         # 【追加】離籍モード用
         self.pause_end_time = 0
+
+        # 【追加】背景音声プレーヤー (MP4の音声のみ再生)
+        self.bg_player = BackgroundAudioPlayer(os.path.join('resoures', 'videoplayback.mp4'))
 
         # グラフ初期設定
         plt.style.use('dark_background')
@@ -181,6 +207,11 @@ class FatigueApp:
         self.btn_away = Button(self.ax_button, 'Away\n(5min)', color='gray', hovercolor='0.7')
         self.btn_away.on_clicked(self.on_away_button_click)
 
+        # 再開ボタンの追加
+        self.ax_resume_button = plt.axes([0.87, 0.35, 0.1, 0.075]) # [left, bottom, width, height]
+        self.btn_resume = Button(self.ax_resume_button, 'Resume', color='lightblue', hovercolor='0.7')
+        self.btn_resume.on_clicked(self.on_resume_button_click)
+
         self.fig.canvas.mpl_connect('close_event', self.on_close)
         self.is_running = True
         
@@ -192,6 +223,11 @@ class FatigueApp:
         """離籍ボタンが押された時の処理"""
         self.pause_end_time = time.time() + 300 # 5分間停止
         print("Away mode started (5 minutes)")
+
+    def on_resume_button_click(self, event):
+        """再開ボタンが押された時の処理"""
+        self.pause_end_time = 0
+        print("Resumed monitoring")
 
     def play_warning_sound(self):
         """別スレッドでビープ音を再生"""
@@ -230,13 +266,17 @@ class FatigueApp:
     def update(self, frame):
         if not self.is_running: return
 
+        # 音声のループ確認
+        self.bg_player.update()
+
         pitch, cam_img = self.face_mon.get_head_pose()
         if cam_img is not None:
             cv2.imshow('Face Monitor', cam_img)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                plt.close(self.fig)
-                self.on_close(None)
-                return
+            
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            plt.close(self.fig)
+            self.on_close(None)
+            return
 
         current_ts = time.time()
         if current_ts - self.last_update > self.update_interval:
@@ -311,8 +351,10 @@ class FatigueApp:
 
     def on_close(self, event):
         self.is_running = False
+        self.is_running = False
         self.input_mon.stop()
         self.face_mon.release()
+        self.bg_player.release()
         cv2.destroyAllWindows()
 
     def run(self):
