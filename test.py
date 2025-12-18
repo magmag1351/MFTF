@@ -208,13 +208,8 @@ class FatigueApp:
         self.btn_away.on_clicked(self.on_away_button_click)
 
         # 再開ボタンの追加
-<<<<<<< HEAD
         self.ax_resume_button = plt.axes([0.87, 0.35, 0.1, 0.075]) # [left, bottom, width, height]
         self.btn_resume = Button(self.ax_resume_button, 'Resume', color='lightblue', hovercolor='0.7')
-=======
-        self.ax_resume_button = plt.axes([0.87, 0.35, 0.1, 0.075])
-        self.btn_resume = Button(self.ax_resume_button, 'Resume', color='gray', hovercolor='0.7')
->>>>>>> 6ea431c5b38fd22a22bb959f4349e0ad7e933105
         self.btn_resume.on_clicked(self.on_resume_button_click)
 
         self.fig.canvas.mpl_connect('close_event', self.on_close)
@@ -232,11 +227,7 @@ class FatigueApp:
     def on_resume_button_click(self, event):
         """再開ボタンが押された時の処理"""
         self.pause_end_time = 0
-<<<<<<< HEAD
         print("Resumed monitoring")
-=======
-        print("Away mode cancelled")
->>>>>>> 6ea431c5b38fd22a22bb959f4349e0ad7e933105
 
     def play_warning_sound(self):
         """別スレッドでビープ音を再生"""
