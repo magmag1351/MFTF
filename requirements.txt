@@ -7,3 +7,4 @@ scikit-learn
 loguru
 windows
 ffpyplayer
+python-dotenv

@@ -12,6 +12,11 @@ from matplotlib.widgets import Button
 from pynput import keyboard, mouse
 from sklearn.linear_model import LinearRegression
 from collections import deque
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # ==========================================
 # 1. INPUT MONITORING (Background Thread)
@@ -62,7 +67,8 @@ class FaceMonitor:
             min_tracking_confidence=0.5,
             refine_landmarks=True
         )
-        self.cap = cv2.VideoCapture(0)
+        camera_id = int(os.getenv('CAMERA_ID', 0))
+        self.cap = cv2.VideoCapture(camera_id)
         
         # 【改善】カメラ行列計算のキャッシュ用
         self.cam_matrix = None
@@ -148,6 +154,9 @@ class BackgroundAudioPlayer:
             # Restart audio
             self.player.seek(0)
             
+    def set_pause(self, pause):
+        self.player.set_pause(pause)
+
     def release(self):
         self.player.close_player()
 
@@ -159,58 +168,119 @@ class FatigueApp:
         self.input_mon = InputMonitor()
         self.face_mon = FaceMonitor()
         
-        self.history_len = 200 
+        self.history_len = int(os.getenv('HISTORY_LEN', 200))
         self.timestamps = deque(maxlen=self.history_len)
         self.fatigue_history = deque(maxlen=self.history_len)
         
-        self.time_counter = 0
+        # self.time_counter = 0  # Frame-based counter removed
         self.model = LinearRegression()
         
         # 【改善】滑らかな変化（慣性）のための変数
         self.smooth_fatigue = 0.0  
-        self.smoothing_factor = 0.2 # 小さいほど変化がゆっくりになる（0.05〜0.2推奨）
+        self.smoothing_factor = float(os.getenv('SMOOTHING_FACTOR', 0.2)) # 小さいほど変化がゆっくりになる（0.05〜0.2推奨）
 
         # 【追加】警告音制御用
         self.last_alert_time = 0
-        self.alert_cooldown = 3.0 # 警告音のインターバル（秒）
+        self.alert_cooldown = float(os.getenv('ALERT_COOLDOWN', 3.0)) # 警告音のインターバル（秒）
 
-        # 【追加】離籍モード用
         self.pause_end_time = 0
 
         # 【追加】背景音声プレーヤー (MP4の音声のみ再生)
-        self.bg_player = BackgroundAudioPlayer(os.path.join('resoures', 'videoplayback.mp4'))
+        video_path = os.getenv('VIDEO_PATH', os.path.join('resources', 'videoplayback.mp4'))
+        self.bg_player = BackgroundAudioPlayer(video_path)
 
         # グラフ初期設定
-        plt.style.use('dark_background')
-        self.fig, self.ax = plt.subplots(figsize=(12, 6))
-        plt.subplots_adjust(right=0.85) # ボタン用のスペースを確保
+        # plt.style.use('dark_background') # Remove default dark mode to customize
         
-        self.line_current, = self.ax.plot([], [], 'c-', label='History (Past 60s)', linewidth=2)
-        self.line_pred, = self.ax.plot([], [], 'm--', label='Forecast (+60s)', linewidth=2)
+        # iOS Dark Mode Colors
+        self.ios_bg = '#000000'
+        self.ios_card = '#1C1C1E'
+        self.ios_text = '#FFFFFF'
+        self.ios_subtext = '#8E8E93'
+        self.ios_cyan = '#64D2FF'
+        self.ios_purple = '#BF5AF2'
+        self.ios_blue = '#0A84FF'
+        self.ios_grid = '#3A3A3C'
         
-        self.ax.set_xlim(-60, 60)
-        self.ax.set_ylim(0, 100) # 0〜100%
+        # Custom rcParams for iOS look
+        plt.rcParams['font.family'] = 'sans-serif'
+        plt.rcParams['text.color'] = self.ios_text
+        plt.rcParams['axes.labelcolor'] = self.ios_subtext
+        plt.rcParams['xtick.color'] = self.ios_subtext
+        plt.rcParams['ytick.color'] = self.ios_subtext
         
-        self.ax.set_title("Fatigue Level Monitor (Smoothed)")
-        self.ax.set_xlabel("Time (Seconds)")
-        self.ax.set_ylabel("Fatigue Level (%)")
-        self.ax.legend(loc='upper left')
-        self.ax.grid(True, alpha=0.3)
+        # 画面レイアウト変更: 横に2つ並べる (左:カメラ, 右:グラフ)
+        self.fig = plt.figure(figsize=(16, 7), facecolor=self.ios_bg)
+        gs = self.fig.add_gridspec(1, 2, width_ratios=[1, 1])
         
-        self.vline = self.ax.axvline(x=0, color='white', alpha=0.5, linestyle=':')
-        self.txt_curr = self.ax.text(0, 95, "Current: --", color='cyan', fontsize=12)
-        self.txt_pred = self.ax.text(0, 88, "Pred (+60s): --", color='magenta', fontsize=12)
-        self.txt_status = self.ax.text(0, 81, "", color='yellow', fontsize=12)
+        self.ax_cam = self.fig.add_subplot(gs[0])
+        self.ax_graph = self.fig.add_subplot(gs[1])
         
-        # 離籍ボタンの追加
-        self.ax_button = plt.axes([0.87, 0.45, 0.1, 0.075]) # [left, bottom, width, height]
-        self.btn_away = Button(self.ax_button, 'Away\n(5min)', color='gray', hovercolor='0.7')
+        plt.subplots_adjust(right=0.85, wspace=0.2) # ボタン用のスペースを確保
+        
+        # --- カメラ表示用設定 ---
+        self.ax_cam.set_title("Camera Feed", color=self.ios_text)
+        self.ax_cam.axis('off')
+        # 初期画像プレースホルダー (真っ黒な画像)
+        self.im_cam = self.ax_cam.imshow(np.zeros((480, 640, 3), dtype='uint8'))
+
+        # --- グラフ表示用設定 ---
+        self.ax_graph.set_facecolor(self.ios_card) # Card-like background
+        # Remove top and right spines for cleaner look
+        self.ax_graph.spines['top'].set_visible(False)
+        self.ax_graph.spines['right'].set_visible(False)
+        self.ax_graph.spines['bottom'].set_color(self.ios_grid)
+        self.ax_graph.spines['left'].set_color(self.ios_grid)
+        
+        self.line_current, = self.ax_graph.plot([], [], color=self.ios_cyan, linewidth=2)
+        self.line_pred, = self.ax_graph.plot([], [], color=self.ios_purple, linestyle='--', linewidth=2)
+        
+        self.ax_graph.set_xlim(-60, 60)
+        self.ax_graph.set_ylim(0, 100) # 0〜100%
+        
+        self.ax_graph.set_title("Fatigue Level Monitor", color=self.ios_text, fontweight='bold')
+        self.ax_graph.set_xlabel("Time (Seconds)")
+        self.ax_graph.set_ylabel("Fatigue Level (%)")
+        
+        # Legend styling
+        legend = self.ax_graph.legend(loc='upper left', frameon=False)
+        for text in legend.get_texts():
+            text.set_color(self.ios_subtext)
+            
+        self.ax_graph.grid(True, color=self.ios_grid, linestyle=':', alpha=0.5)
+        
+        self.vline = self.ax_graph.axvline(x=0, color=self.ios_text, alpha=0.3, linestyle=':')
+        self.txt_curr = self.ax_graph.text(0, 95, "Current: --", color=self.ios_cyan, fontsize=12, fontweight='bold')
+        self.txt_pred = self.ax_graph.text(0, 88, "Pred (+60s): --", color=self.ios_purple, fontsize=12)
+        self.txt_status = self.ax_graph.text(0, 81, "", color=self.ios_subtext, fontsize=12)
+        
+        # 離籍ボタンの追加 (iOS Style)
+        self.ax_button = plt.axes([0.87, 0.45, 0.1, 0.05]) # [left, bottom, width, height]
+        # Matplotlib buttons are hard to style perfectly flat without borders, trying best effort
+        self.btn_away = Button(self.ax_button, 'Away\n(5min)', color=self.ios_card, hovercolor=self.ios_grid)
+        self.btn_away.label.set_color(self.ios_text)
         self.btn_away.on_clicked(self.on_away_button_click)
 
-        # 再開ボタンの追加
-        self.ax_resume_button = plt.axes([0.87, 0.35, 0.1, 0.075]) # [left, bottom, width, height]
-        self.btn_resume = Button(self.ax_resume_button, 'Resume', color='lightblue', hovercolor='0.7')
+        # 再開ボタンの追加 (iOS Style)
+        self.ax_resume_button = plt.axes([0.87, 0.35, 0.1, 0.05]) # [left, bottom, width, height]
+        self.btn_resume = Button(self.ax_resume_button, 'Resume', color=self.ios_blue, hovercolor='#409CFF')
+        self.btn_resume.label.set_color('white')
         self.btn_resume.on_clicked(self.on_resume_button_click)
+
+        # 音楽停止・再生ボタンの追加 (横並び)
+        self.ax_music_stop = plt.axes([0.87, 0.25, 0.045, 0.05])
+        self.ax_music_play = plt.axes([0.925, 0.25, 0.045, 0.05])
+        
+        self.btn_music_stop = Button(self.ax_music_stop, 'Stop\nMusic', color=self.ios_card, hovercolor=self.ios_grid)
+        self.btn_music_play = Button(self.ax_music_play, 'Play\nMusic', color=self.ios_blue, hovercolor='#409CFF')
+        
+        self.btn_music_stop.label.set_color(self.ios_text)
+        self.btn_music_stop.label.set_fontsize(8)
+        self.btn_music_play.label.set_color('white')
+        self.btn_music_play.label.set_fontsize(8)
+        
+        self.btn_music_stop.on_clicked(self.on_music_stop_click)
+        self.btn_music_play.on_clicked(self.on_music_play_click)
 
         self.fig.canvas.mpl_connect('close_event', self.on_close)
         self.is_running = True
@@ -221,13 +291,24 @@ class FatigueApp:
 
     def on_away_button_click(self, event):
         """離籍ボタンが押された時の処理"""
-        self.pause_end_time = time.time() + 300 # 5分間停止
-        print("Away mode started (5 minutes)")
+        away_time = int(os.getenv('AWAY_TIME_SECONDS', 300))
+        self.pause_end_time = time.time() + away_time # 5分間停止
+        print(f"Away mode started ({away_time // 60} minutes)")
 
     def on_resume_button_click(self, event):
         """再開ボタンが押された時の処理"""
         self.pause_end_time = 0
         print("Resumed monitoring")
+
+    def on_music_stop_click(self, event):
+        """音楽停止ボタンが押された時の処理"""
+        self.bg_player.set_pause(True)
+        print("Music stopped")
+
+    def on_music_play_click(self, event):
+        """音楽再生ボタンが押された時の処理"""
+        self.bg_player.set_pause(False)
+        print("Music resumed")
 
     def play_warning_sound(self):
         """別スレッドでビープ音を再生"""
@@ -258,7 +339,10 @@ class FatigueApp:
         weights = np.exp(np.linspace(-2, 0, len(y)))
         self.model.fit(X, y, sample_weight=weights)
         
-        future_time = np.array([[self.time_counter + 60]])
+        if not self.timestamps:
+            return 0
+        current_elapsed = self.timestamps[-1]
+        future_time = np.array([[current_elapsed + 60]])
         prediction = self.model.predict(future_time)
         
         return max(0, min(100, prediction[0]))
@@ -271,7 +355,9 @@ class FatigueApp:
 
         pitch, cam_img = self.face_mon.get_head_pose()
         if cam_img is not None:
-            cv2.imshow('Face Monitor', cam_img)
+            # BGR -> RGB変換してMatplotlibで表示
+            rgb_img = cv2.cvtColor(cam_img, cv2.COLOR_BGR2RGB)
+            self.im_cam.set_data(rgb_img)
             
         if cv2.waitKey(1) & 0xFF == ord('q'):
             plt.close(self.fig)
@@ -279,6 +365,8 @@ class FatigueApp:
             return
 
         current_ts = time.time()
+        elapsed_time = current_ts - self.start_time # Elapsed time for axis calculations
+
         if current_ts - self.last_update > self.update_interval:
             self.last_update = current_ts
             
@@ -290,10 +378,14 @@ class FatigueApp:
                 self.txt_status.set_text(status_text)
                 
                 # グラフのX軸範囲を更新して、テキスト位置を維持する
-                left_limit = self.time_counter - 60
+                left_limit = elapsed_time - 60
+                
                 self.txt_status.set_position((left_limit + 2, 81))
                 self.txt_curr.set_position((left_limit + 2, 95))
                 self.txt_pred.set_position((left_limit + 2, 88))
+                
+                # Ensure axis is updated even in away mode to scroll
+                self.ax_graph.set_xlim(left_limit, elapsed_time + 60)
                 
                 return # 計測・更新をスキップ
 
@@ -315,12 +407,12 @@ class FatigueApp:
             self.smooth_fatigue = (self.smooth_fatigue * (1.0 - self.smoothing_factor)) + (target_fatigue * self.smoothing_factor)
 
             # 3. リスト更新
-            self.time_counter += 1
-            self.timestamps.append(self.time_counter)
+            self.timestamps.append(elapsed_time)
             self.fatigue_history.append(self.smooth_fatigue)
             
             # 4. 警告判定（滑らかな値で判定するため誤検知が減る）
-            if self.smooth_fatigue >= 90:
+            fatigue_threshold = float(os.getenv('FATIGUE_THRESHOLD', 90))
+            if self.smooth_fatigue >= fatigue_threshold:
                 if current_ts - self.last_alert_time > self.alert_cooldown:
                     threading.Thread(target=self.play_warning_sound, daemon=True).start()
                     self.last_alert_time = current_ts
@@ -332,15 +424,17 @@ class FatigueApp:
             # グラフ描画更新
             self.line_current.set_data(self.timestamps, self.fatigue_history)
             
-            pred_x = [self.time_counter, self.time_counter + 60]
+            # 予測線: 現在時刻〜現在時刻+60秒
+            pred_x = [elapsed_time, elapsed_time + 60]
             pred_y = [self.smooth_fatigue, f_pred_target]
             self.line_pred.set_data(pred_x, pred_y)
             
-            left_limit = self.time_counter - 60
-            right_limit = self.time_counter + 60
-            self.ax.set_xlim(left_limit, right_limit)
+            # X軸の範囲: 現在時刻の前後60秒
+            left_limit = elapsed_time - 60
+            right_limit = elapsed_time + 60
+            self.ax_graph.set_xlim(left_limit, right_limit)
             
-            self.vline.set_xdata([self.time_counter])
+            self.vline.set_xdata([elapsed_time])
             
             self.txt_curr.set_text(f"Current: {self.smooth_fatigue:.1f}")
             self.txt_pred.set_text(f"Pred (+60s): {f_pred_target:.1f}")
