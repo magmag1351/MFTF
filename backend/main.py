@@ -70,14 +70,17 @@ class InputMonitor:
         self.key_count = 0
         self.click_count = 0
         self.lock = threading.Lock()
-        self.running = True
-        
-        # Start listeners
+        self.kb_listener = None
+        self.mouse_listener = None
+
+    def start(self):
         try:
+            self.running = True
             self.kb_listener = keyboard.Listener(on_press=self._on_press)
             self.mouse_listener = mouse.Listener(on_click=self._on_click)
             self.kb_listener.start()
             self.mouse_listener.start()
+            logger.info("Input listeners started")
         except Exception as e:
             logger.error(f"Failed to start input listeners: {e}")
 
@@ -99,8 +102,15 @@ class InputMonitor:
 
     def stop(self):
         self.running = False
-        if hasattr(self, 'kb_listener'): self.kb_listener.stop()
-        if hasattr(self, 'mouse_listener'): self.mouse_listener.stop()
+        if self.kb_listener:
+            self.kb_listener.stop()
+            self.kb_listener.join(timeout=1.0)
+            self.kb_listener = None
+        if self.mouse_listener:
+            self.mouse_listener.stop()
+            self.mouse_listener.join(timeout=1.0)
+            self.mouse_listener = None
+        logger.info("Input listeners stopped")
 
 # ==========================================
 # 2. FACE & POSE ESTIMATION
@@ -168,7 +178,9 @@ class FaceMonitor:
         return pitch, image
 
     def release(self):
-        pass # self.cap.release()
+        if self.face_mesh:
+            self.face_mesh.close()
+        logger.info("FaceMesh released")
 
 # ==========================================
 # 3. BACKEND SERVICE Logic
@@ -257,14 +269,19 @@ class FatigueService:
     def start(self):
         if self.is_running: return
         self.is_running = True
+        self.input_mon.start()
         self.thread = threading.Thread(target=self._loop, daemon=True)
         self.thread.start()
         logger.info("Service Started")
 
     def stop(self):
+        logger.info("Stopping service...")
         self.is_running = False
         self.input_mon.stop()
         self.face_mon.release()
+        if self.thread and self.thread.is_alive():
+            self.thread.join(timeout=1.0)
+        logger.info("Service Stopped")
 
     async def _save_session(self):
         if self.current_session_start is None or self.session_count == 0:
