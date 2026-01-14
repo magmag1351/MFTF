@@ -422,3 +422,111 @@ main {
     line-height: 1.6;
     margin: 0;
 }
+
+/* History Specific Styles */
+.history-container {
+    padding: 24px;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.history-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.summary-card {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.summary-card .label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.summary-card .value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.history-table-container {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 24px;
+}
+
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.history-table th {
+    text-align: left;
+    padding: 12px;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 500;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.history-table td {
+    padding: 16px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 0.95rem;
+}
+
+.fatigue-badge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.fatigue-badge::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.badge-low {
+    background: rgba(48, 209, 88, 0.15);
+    color: #30D158;
+}
+
+.badge-low::before {
+    background: #30D158;
+}
+
+.badge-medium {
+    background: rgba(255, 159, 10, 0.15);
+    color: #FF9F0A;
+}
+
+.badge-medium::before {
+    background: #FF9F0A;
+}
+
+.badge-high {
+    background: rgba(255, 69, 58, 0.15);
+    color: #FF453A;
+}
+
+.badge-high::before {
+    background: #FF453A;
+}

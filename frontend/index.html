@@ -111,15 +111,52 @@
             </div>
         </main>
 
-        <main v-show="currentView === 'history'" class="centered-view">
-            <div class="card full-width">
+        <main v-show="currentView === 'history'">
+            <div class="history-container">
                 <div class="card-header">
                     <h2>History Log</h2>
                 </div>
-                <div class="placeholder-content">
-                    <span class="large-icon">📊</span>
-                    <h3>Historical Data Coming Soon</h3>
-                    <p>Track your fatigue patterns over days and weeks to optimize your performance.</p>
+
+                <!-- Summary Grid -->
+                <div class="history-summary">
+                    <div class="summary-card">
+                        <span class="label">Average Fatigue</span>
+                        <span class="value">42%</span>
+                    </div>
+                    <div class="summary-card">
+                        <span class="label">Total Alerts</span>
+                        <span class="value">5</span>
+                    </div>
+                    <div class="summary-card">
+                        <span class="label">Work Time</span>
+                        <span class="value">12.5h</span>
+                    </div>
+                </div>
+
+                <!-- Table -->
+                <div class="history-table-container">
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Duration</th>
+                                <th>Peak Fatigue</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="session in dummyHistory" :key="session.id">
+                                <td>{{ session.timestamp }}</td>
+                                <td>{{ session.duration }}</td>
+                                <td>{{ session.peak }}%</td>
+                                <td>
+                                    <span class="fatigue-badge" :class="getBadgeClass(session.peak)">
+                                        {{ getStatusLabel(session.peak) }}
+                                    </span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </main>

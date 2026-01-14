@@ -21,6 +21,15 @@ createApp({
         let captureCanvas = null;
         let captureInterval = null;
 
+        // History Mockup Data
+        const dummyHistory = ref([
+            { id: 1, timestamp: '2024-01-14 10:30', duration: '1h 20m', peak: 85 },
+            { id: 2, timestamp: '2024-01-13 14:15', duration: '2h 15m', peak: 35 },
+            { id: 3, timestamp: '2024-01-13 09:00', duration: '45m', peak: 60 },
+            { id: 4, timestamp: '2024-01-12 16:45', duration: '1h 10m', peak: 40 },
+            { id: 5, timestamp: '2024-01-12 11:30', duration: '3h 05m', peak: 92 }
+        ]);
+
         // Chart Data
         const chartData = {
             labels: [],
@@ -172,6 +181,18 @@ createApp({
             return 'text-normal';
         };
 
+        const getBadgeClass = (val) => {
+            if (val >= 80) return 'badge-high';
+            if (val >= 50) return 'badge-medium';
+            return 'badge-low';
+        };
+
+        const getStatusLabel = (val) => {
+            if (val >= 80) return 'High';
+            if (val >= 50) return 'Medium';
+            return 'Low';
+        };
+
         const startCamera = async () => {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
@@ -248,7 +269,10 @@ createApp({
             setAway,
             resume,
             formatTime,
-            getFatigueClass
+            getFatigueClass,
+            dummyHistory,
+            getBadgeClass,
+            getStatusLabel
         };
     }
 }).mount('#app');
