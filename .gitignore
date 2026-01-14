@@ -1,5 +1,6 @@
 /data
-/src/__pycahe__
+/backend/__pycache__
+/frontend/__pycache__
 /resources
 /venv
 /db
