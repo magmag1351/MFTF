@@ -10,6 +10,7 @@ createApp({
 
         const fatigue = ref(0);
         const prediction = ref(0);
+        const currentView = ref('monitor'); // monitor, history, settings
         const status = ref('active'); // active, away
         const awayRemaining = ref(0);
         const musicPlaying = ref(false);
@@ -239,6 +240,7 @@ createApp({
             // frame,
             fatigue,
             prediction,
+            currentView,
             status,
             awayRemaining,
             musicPlaying,

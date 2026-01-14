@@ -24,7 +24,9 @@ body {
     overflow: hidden;
 }
 
-[v-cloak] { display: none; }
+[v-cloak] {
+    display: none;
+}
 
 .background-glow {
     position: fixed;
@@ -79,6 +81,46 @@ header {
 
 .status-indicator.active {
     color: var(--success);
+}
+
+nav {
+    display: flex;
+    gap: 32px;
+}
+
+.nav-link {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.95rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    cursor: pointer;
+    position: relative;
+    padding: 8px 12px;
+    border-radius: 8px;
+}
+
+.nav-link:hover {
+    color: var(--text-main);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.nav-link.active {
+    color: var(--primary);
+    background: rgba(10, 132, 255, 0.1);
+}
+
+.nav-link.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 12px;
+    right: 12px;
+    height: 2px;
+    background: var(--primary);
+    border-radius: 2px;
+    display: none;
+    /* Pill style looks better than underline here */
 }
 
 .dot {
@@ -149,8 +191,10 @@ main {
 .video-container img {
     width: 100%;
     height: 100%;
-    object-fit: contain; /* Don't stretch */
-    transform: scaleX(-1); /* Mirror effect */
+    object-fit: contain;
+    /* Don't stretch */
+    transform: scaleX(-1);
+    /* Mirror effect */
 }
 
 .placeholder {
@@ -207,7 +251,8 @@ main {
 }
 
 .chart-card {
-    flex: 2; /* Take up more space */
+    flex: 2;
+    /* Take up more space */
 }
 
 .chart-container {
@@ -244,13 +289,12 @@ main {
     transform: translateY(-2px);
 }
 
-.btn-away { /* Gradient border effect or similar could be cool, sticking to simple */ }
-
 .btn-play {
     background: var(--primary);
     border: none;
     box-shadow: 0 4px 20px rgba(10, 132, 255, 0.3);
 }
+
 .btn-play:hover {
     background: #0071e3;
     box-shadow: 0 4px 25px rgba(10, 132, 255, 0.4);
@@ -261,14 +305,18 @@ main {
     color: var(--danger);
     border: 1px solid rgba(255, 69, 58, 0.3);
 }
+
 .btn-stop:hover {
     background: rgba(255, 69, 58, 0.3);
 }
 
 .overlay {
     position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.8);
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
     backdrop-filter: blur(8px);
     display: flex;
     align-items: center;
@@ -294,10 +342,77 @@ main {
     cursor: pointer;
 }
 
-@keyframes spin { 100% { transform: rotate(360deg); } }
-@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+@keyframes spin {
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
 
 /* Text Colors based on fatigue */
-.text-normal { color: var(--success); }
-.text-warning { color: var(--warning); }
-.text-critical { color: var(--danger); text-shadow: 0 0 10px rgba(255, 69, 58, 0.5); }
+.text-normal {
+    color: var(--success);
+}
+
+.text-warning {
+    color: var(--warning);
+}
+
+.text-critical {
+    color: var(--danger);
+    text-shadow: 0 0 10px rgba(255, 69, 58, 0.5);
+}
+
+/* New View Styles */
+.centered-view {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 60px;
+}
+
+.full-width {
+    width: 100%;
+    max-width: 800px;
+}
+
+.placeholder-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.large-icon {
+    font-size: 4rem;
+    margin-bottom: 24px;
+    display: block;
+}
+
+.placeholder-content h3 {
+    color: var(--text-main);
+    margin: 0 0 12px 0;
+    font-weight: 600;
+}
+
+.placeholder-content p {
+    max-width: 400px;
+    line-height: 1.6;
+    margin: 0;
+}
