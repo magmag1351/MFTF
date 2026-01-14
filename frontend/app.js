@@ -56,6 +56,33 @@ createApp({
         let captureCanvas = null;
         let captureInterval = null;
 
+        const initAudioContext = () => {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+        };
+
+        const playBeep = (freq = 440, duration = 0.2) => {
+            initAudioContext();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(freq, audioContext.currentTime);
+
+            gainNode.gain.setValueAtTime(settings.value.alertVolume / 100, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + duration);
+        };
+
         // History Data (Removed Dummy)
         const fetchHistory = async () => {
             try {
@@ -245,6 +272,7 @@ createApp({
         };
 
         const toggleMusic = () => {
+            initAudioContext();
             const audio = document.getElementById('bgMusic');
             if (audio.paused) {
                 audio.play().then(() => {
@@ -257,9 +285,7 @@ createApp({
         };
 
         const playAlert = () => {
-            const audio = document.getElementById('alertSound');
-            audio.volume = settings.value.alertVolume / 100;
-            audio.play().catch(e => console.error("Alert play failed", e));
+            playBeep(880, 0.3); // High pitch beep for alert
         };
 
         const setAway = () => {
