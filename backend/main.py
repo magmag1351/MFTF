@@ -238,87 +238,77 @@ class FatigueService:
 
     def _loop(self):
         while self.is_running:
-            loop_start = time.time()
-            elapsed_time = loop_start - self.start_time
-            
-            # Check Away Mode
-            remaining_pause = self.pause_end_time - loop_start
-            if remaining_pause > 0:
-                self.current_state["status"] = "away"
-                self.current_state["away_remaining"] = int(remaining_pause)
+            try:
+                loop_start = time.time()
+                elapsed_time = loop_start - self.start_time
+                
+                # Check Away Mode
+                remaining_pause = self.pause_end_time - loop_start
+                if remaining_pause > 0:
+                    self.current_state["status"] = "away"
+                    self.current_state["away_remaining"] = int(remaining_pause)
+                    self.current_state["alert"] = False
+                    
+                    time.sleep(0.1)
+                    continue
+
+                self.current_state["status"] = "active"
+                self.current_state["away_remaining"] = 0
+                
+                # Input & Face
+                keys, clicks = self.input_mon.get_and_reset_counts()
+                
+                # Process latest frame if available
+                img_to_process = None
+                with self.frame_lock:
+                    if self.latest_frame is not None:
+                        img_to_process = self.latest_frame
+                        self.latest_frame = None # Consume it
+                
+                pitch = None
+                if img_to_process is not None:
+                    pitch, _ = self.face_mon.process_image(img_to_process)
+                
+                if pitch is None:
+                    # If no frame received recently, assume no face? 
+                    # For now, strict: No frame = No face = Penalty
+                    pitch = -20 # Penalty for no face / no frame
+                
+                target = self.calculate_current_fatigue(keys, clicks, pitch)
+                self.smooth_fatigue = (self.smooth_fatigue * (1.0 - self.smoothing_factor)) + (target * self.smoothing_factor)
+                
+                self.timestamps.append(elapsed_time)
+                self.fatigue_history.append(self.smooth_fatigue)
+                
+                # Check Alert
                 self.current_state["alert"] = False
-                
-                # Fetch camera just for display (optional in away mode)
-                _, img = self.face_mon.get_head_pose()
-                if img is not None:
-                    _, buffer = cv2.imencode('.jpg', img, [int(cv2.IMWRITE_JPEG_QUALITY), 60])
-                    b64_img = base64.b64encode(buffer).decode('utf-8')
-                    self.current_state["image_base64"] = b64_img
-                
-                time.sleep(0.1)
-                continue
+                fatigue_threshold = float(os.getenv('FATIGUE_THRESHOLD', 90))
+                if self.smooth_fatigue >= fatigue_threshold:
+                    if loop_start - self.last_alert_time > self.alert_cooldown:
+                        self.current_state["alert"] = True
+                        self.last_alert_time = loop_start
 
-            self.current_state["status"] = "active"
-            self.current_state["away_remaining"] = 0
-            
-            # Input & Face
-            keys, clicks = self.input_mon.get_and_reset_counts()
-            
-            # Process latest frame if available
-            img_to_process = None
-            with self.frame_lock:
-                if self.latest_frame is not None:
-                    img_to_process = self.latest_frame
-                    self.latest_frame = None # Consume it
-            
-            pitch = None
-            if img_to_process is not None:
-                pitch, _ = self.face_mon.process_image(img_to_process)
-            
-            if pitch is None:
-                # If no frame received recently, assume no face? 
-                # Or just keep previous state? 
-                # For now, if no frame -> pitch is None logic triggers penalty?
-                # But we might only send 10fps.
-                # Let's use a "last known pitch" with timeout if needed.
-                # For now, strict: No frame = No face = Penalty
-                pass 
+                # Predict
+                pred = self.get_prediction()
                 
-            if pitch is None:
-                pitch = -20 # Penalty for no face / no frame
-            
-            target = self.calculate_current_fatigue(keys, clicks, pitch)
-            self.smooth_fatigue = (self.smooth_fatigue * (1.0 - self.smoothing_factor)) + (target * self.smoothing_factor)
-            
-            self.timestamps.append(elapsed_time)
-            self.fatigue_history.append(self.smooth_fatigue)
-            
-            # Check Alert
-            self.current_state["alert"] = False
-            fatigue_threshold = float(os.getenv('FATIGUE_THRESHOLD', 90))
-            if self.smooth_fatigue >= fatigue_threshold:
-                if loop_start - self.last_alert_time > self.alert_cooldown:
-                    self.current_state["alert"] = True
-                    self.last_alert_time = loop_start
-
-            # Predict
-            pred = self.get_prediction()
-            
-            # Update State
-            self.current_state["fatigue_current"] = round(self.smooth_fatigue, 1)
-            self.current_state["fatigue_pred"] = round(pred, 1)
-            
-            # We do NOT send image back to frontend (saves bandwidth)
-            self.current_state["image_base64"] = "" 
+                # Update State
+                self.current_state["fatigue_current"] = round(self.smooth_fatigue, 1)
+                self.current_state["fatigue_pred"] = round(pred, 1)
                 
-            # Chart Data 
-            data_points = []
-            ts_list = list(self.timestamps)
-            val_list = list(self.fatigue_history)
-            for t, v in zip(ts_list, val_list):
-                 data_points.append({"time": round(t, 1), "value": round(v, 1)})
-            self.current_state["chart_data"] = data_points
+                # We do NOT send image back to frontend (saves bandwidth)
+                self.current_state["image_base64"] = "" 
+                    
+                # Chart Data 
+                data_points = []
+                ts_list = list(self.timestamps)
+                val_list = list(self.fatigue_history)
+                for t, v in zip(ts_list, val_list):
+                     data_points.append({"time": round(t, 1), "value": round(v, 1)})
+                self.current_state["chart_data"] = data_points
 
+            except Exception as e:
+                logger.error(f"FatigueService Loop Error: {e}")
+            
             time.sleep(0.1) # 10 FPS
 
 service = FatigueService()
