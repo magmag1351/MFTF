@@ -58,8 +58,22 @@ class SessionRecord(Base):
 engine = create_async_engine(DATABASE_URL)
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
+# Tasks Database Setup
+TASKS_DB_URL = f"sqlite+aiosqlite:///{os.path.join(db_dir, 'tasks.db')}"
+class Task(Base):
+    __tablename__ = "tasks"
+    id = Column(Integer, primary_key=True)
+    title = Column(String, nullable=False)
+    status = Column(String, default="todo") # todo, in_progress, done
+    created_at = Column(DateTime, default=datetime.now)
+
+tasks_engine = create_async_engine(TASKS_DB_URL)
+TasksSessionLocal = sessionmaker(tasks_engine, class_=AsyncSession, expire_on_commit=False)
+
 async def init_db():
     async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    async with tasks_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
 # ==========================================
@@ -470,6 +484,49 @@ async def clear_history():
         await db.execute(Base.metadata.tables['sessions'].delete())
         await db.commit()
     return {"status": "success", "message": "History cleared"}
+
+# Tasks Endpoints
+@app.get("/tasks")
+async def get_tasks():
+    async with TasksSessionLocal() as db:
+        stmt = select(Task).order_by(desc(Task.created_at))
+        result = await db.execute(stmt)
+        tasks = result.scalars().all()
+        return [{"id": t.id, "title": t.title, "status": t.status} for t in tasks]
+
+@app.post("/tasks")
+async def add_task(data: dict):
+    async with TasksSessionLocal() as db:
+        new_task = Task(title=data.get("title", ""), status="todo")
+        db.add(new_task)
+        await db.commit()
+        await db.refresh(new_task)
+        return {"id": new_task.id, "title": new_task.title, "status": new_task.status}
+
+@app.patch("/tasks/{task_id}")
+async def update_task(task_id: int, data: dict):
+    async with TasksSessionLocal() as db:
+        stmt = select(Task).where(Task.id == task_id)
+        result = await db.execute(stmt)
+        task = result.scalar_one_or_none()
+        if task:
+            if "status" in data: task.status = data["status"]
+            if "title" in data: task.title = data["title"]
+            await db.commit()
+            return {"status": "success"}
+    return {"status": "error", "message": "Task not found"}
+
+@app.delete("/tasks/{task_id}")
+async def delete_task(task_id: int):
+    async with TasksSessionLocal() as db:
+        stmt = select(Task).where(Task.id == task_id)
+        result = await db.execute(stmt)
+        task = result.scalar_one_or_none()
+        if task:
+            await db.delete(task)
+            await db.commit()
+            return {"status": "success"}
+    return {"status": "error", "message": "Task not found"}
 
 # Mount Static Files
 base_dir = os.path.dirname(os.path.abspath(__file__))

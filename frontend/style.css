@@ -698,3 +698,156 @@ input:checked+.slider:before {
     transform: translateY(-2px);
     background: #0071e3;
 }
+
+/* Tasks Specific Styles */
+.tasks-container {
+    padding: 24px;
+    width: 100%;
+    max-width: 1400px;
+    /* Wider for kanban */
+    margin: 0 auto;
+}
+
+.kanban-board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    align-items: flex-start;
+}
+
+.kanban-column {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 16px;
+    min-height: 400px;
+}
+
+.column-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.column-header h3 {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+}
+
+.task-count {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.75rem;
+}
+
+.task-input-group {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 30px;
+}
+
+.task-input {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 12px 20px;
+    color: var(--text-main);
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.task-input:focus {
+    border-color: var(--primary);
+}
+
+.task-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 100px;
+}
+
+.task-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    /* Stacked for narrower columns */
+    gap: 12px;
+    transition: transform 0.2s, border-color 0.2s;
+}
+
+.task-card:hover {
+    transform: translateX(4px);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.task-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.task-title {
+    font-size: 1.05rem;
+    font-weight: 500;
+}
+
+.task-status-badge {
+    padding: 4px 12px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    cursor: pointer;
+    user-select: none;
+}
+
+.status-todo {
+    background: rgba(142, 142, 147, 0.15);
+    color: #8E8E93;
+}
+
+.status-in_progress {
+    background: rgba(100, 210, 255, 0.15);
+    color: #64D2FF;
+    box-shadow: 0 0 8px rgba(100, 210, 255, 0.2);
+}
+
+.status-done {
+    background: rgba(48, 209, 88, 0.15);
+    color: #30D158;
+    text-decoration: line-through;
+    opacity: 0.7;
+}
+
+.task-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.btn-icon-delete {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 4px;
+    border-radius: 4px;
+    transition: background 0.2s, color 0.2s;
+}
+
+.btn-icon-delete:hover {
+    background: rgba(255, 69, 58, 0.1);
+    color: var(--danger);
+}

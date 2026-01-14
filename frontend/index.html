@@ -25,6 +25,8 @@
             <nav>
                 <a class="nav-link" :class="{ active: currentView === 'monitor' }"
                     @click="currentView = 'monitor'">Monitor</a>
+                <a class="nav-link" :class="{ active: currentView === 'tasks' }"
+                    @click="currentView = 'tasks'">Tasks</a>
                 <a class="nav-link" :class="{ active: currentView === 'history' }"
                     @click="currentView = 'history'">History</a>
                 <a class="nav-link" :class="{ active: currentView === 'settings' }"
@@ -107,6 +109,86 @@
                         <span class="btn-icon">{{ musicPlaying ? '⏸' : '▶' }}</span>
                         {{ musicPlaying ? 'Stop Music' : 'Play Music' }}
                     </button>
+                </div>
+            </div>
+        </main>
+
+        <main v-show="currentView === 'tasks'">
+            <div class="tasks-container">
+                <div class="card-header">
+                    <h2>Task Management</h2>
+                </div>
+
+                <div class="task-input-group">
+                    <input type="text" class="task-input" placeholder="What needs to be done?" v-model="newTaskTitle"
+                        @keyup.enter="addTask">
+                    <button class="btn btn-save" style="padding: 0 24px;" @click="addTask">Add Task</button>
+                </div>
+
+                <div class="kanban-board">
+                    <!-- TODO -->
+                    <div class="kanban-column">
+                        <div class="column-header">
+                            <h3>Todo</h3>
+                            <span class="task-count">{{ tasks.filter(t => t.status === 'todo').length }}</span>
+                        </div>
+                        <div class="task-list">
+                            <div v-for="task in tasks.filter(t => t.status === 'todo')" :key="task.id"
+                                class="task-card">
+                                <div class="task-info">
+                                    <span class="task-title">{{ task.title }}</span>
+                                </div>
+                                <div class="task-actions">
+                                    <span class="task-status-badge status-todo"
+                                        @click="toggleTaskStatus(task)">Start</span>
+                                    <button class="btn-icon-delete" @click="deleteTask(task.id)">🗑</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- IN PROGRESS -->
+                    <div class="kanban-column">
+                        <div class="column-header">
+                            <h3 style="color: var(--primary);">In Progress</h3>
+                            <span class="task-count">{{ tasks.filter(t => t.status === 'in_progress').length }}</span>
+                        </div>
+                        <div class="task-list">
+                            <div v-for="task in tasks.filter(t => t.status === 'in_progress')" :key="task.id"
+                                class="task-card" style="border-color: var(--primary-glow);">
+                                <div class="task-info">
+                                    <span class="task-title">{{ task.title }}</span>
+                                </div>
+                                <div class="task-actions">
+                                    <span class="task-status-badge status-in_progress"
+                                        @click="toggleTaskStatus(task)">Complete</span>
+                                    <button class="btn-icon-delete" @click="deleteTask(task.id)">🗑</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- DONE -->
+                    <div class="kanban-column">
+                        <div class="column-header">
+                            <h3 style="color: #30D158;">Done</h3>
+                            <span class="task-count">{{ tasks.filter(t => t.status === 'done').length }}</span>
+                        </div>
+                        <div class="task-list">
+                            <div v-for="task in tasks.filter(t => t.status === 'done')" :key="task.id"
+                                class="task-card">
+                                <div class="task-info">
+                                    <span class="task-title" style="text-decoration: line-through; opacity: 0.6;">{{
+                                        task.title }}</span>
+                                </div>
+                                <div class="task-actions">
+                                    <span class="task-status-badge status-done"
+                                        @click="toggleTaskStatus(task)">Revert</span>
+                                    <button class="btn-icon-delete" @click="deleteTask(task.id)">🗑</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>

@@ -15,6 +15,10 @@ createApp({
             total_time: 0
         });
 
+        // Tasks State
+        const tasks = ref([]);
+        const newTaskTitle = ref("");
+
         // Settings State
         const settings = ref({
             fatigueThreshold: localStorage.getItem('fatigueThreshold') || 90,
@@ -73,6 +77,50 @@ createApp({
             } catch (err) {
                 console.error("Failed to clear history:", err);
             }
+        };
+
+        // Tasks Logic
+        const fetchTasks = async () => {
+            try {
+                const res = await fetch('/tasks');
+                tasks.value = await res.json();
+            } catch (err) { console.error("Fetch tasks failed", err); }
+        };
+
+        const addTask = async () => {
+            if (!newTaskTitle.value.trim()) return;
+            try {
+                const res = await fetch('/tasks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: newTaskTitle.value })
+                });
+                if (res.ok) {
+                    newTaskTitle.value = "";
+                    fetchTasks();
+                }
+            } catch (err) { console.error("Add task failed", err); }
+        };
+
+        const toggleTaskStatus = async (task) => {
+            const nextStatus = { 'todo': 'in_progress', 'in_progress': 'done', 'done': 'todo' };
+            const newStatus = nextStatus[task.status];
+            try {
+                await fetch(`/tasks/${task.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: newStatus })
+                });
+                fetchTasks();
+            } catch (err) { console.error("Update task failed", err); }
+        };
+
+        const deleteTask = async (task_id) => {
+            if (!confirm("Delete this task?")) return;
+            try {
+                await fetch(`/tasks/${task_id}`, { method: 'DELETE' });
+                fetchTasks();
+            } catch (err) { console.error("Delete task failed", err); }
         };
 
         const updateAccentColor = (color) => {
@@ -301,6 +349,9 @@ createApp({
             if (newView === 'history') {
                 fetchHistory();
             }
+            if (newView === 'tasks') {
+                fetchTasks();
+            }
         });
 
         onMounted(() => {
@@ -339,6 +390,11 @@ createApp({
             saveSettings,
             clearHistory,
             updateAccentColor,
+            tasks,
+            newTaskTitle,
+            addTask,
+            toggleTaskStatus,
+            deleteTask,
             getBadgeClass,
             getStatusLabel
         };
