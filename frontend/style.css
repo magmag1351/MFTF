@@ -41,7 +41,8 @@ body {
 
 header {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
+    /* Change from space-between */
     align-items: center;
     padding: 20px 40px;
     border-bottom: 1px solid var(--border-color);
@@ -85,7 +86,12 @@ header {
 
 nav {
     display: flex;
-    gap: 32px;
+    gap: 16px;
+    /* Tighten gap slightly */
+    margin-left: 40px;
+    /* Space after logo */
+    flex: 1;
+    /* Take remaining space so status-indicator stays on right */
 }
 
 .nav-link {
