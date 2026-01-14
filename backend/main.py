@@ -154,6 +154,7 @@ class FatigueService:
         self.history_len = int(os.getenv('HISTORY_LEN', 200))
         self.timestamps = deque(maxlen=self.history_len)
         self.fatigue_history = deque(maxlen=self.history_len)
+        self.prediction_history = deque(maxlen=self.history_len)
         
         self.model = LinearRegression()
         self.smooth_fatigue = 0.0  
@@ -280,6 +281,10 @@ class FatigueService:
                 self.timestamps.append(elapsed_time)
                 self.fatigue_history.append(self.smooth_fatigue)
                 
+                # Predict
+                pred = self.get_prediction()
+                self.prediction_history.append(pred)
+                
                 # Check Alert
                 self.current_state["alert"] = False
                 fatigue_threshold = float(os.getenv('FATIGUE_THRESHOLD', 90))
@@ -288,9 +293,6 @@ class FatigueService:
                         self.current_state["alert"] = True
                         self.last_alert_time = loop_start
 
-                # Predict
-                pred = self.get_prediction()
-                
                 # Update State
                 self.current_state["fatigue_current"] = round(self.smooth_fatigue, 1)
                 self.current_state["fatigue_pred"] = round(pred, 1)
@@ -302,8 +304,13 @@ class FatigueService:
                 data_points = []
                 ts_list = list(self.timestamps)
                 val_list = list(self.fatigue_history)
-                for t, v in zip(ts_list, val_list):
-                     data_points.append({"time": round(t, 1), "value": round(v, 1)})
+                pred_list = list(self.prediction_history)
+                for t, v, p in zip(ts_list, val_list, pred_list):
+                     data_points.append({
+                         "time": round(t, 1), 
+                         "value": round(v, 1),
+                         "pred": round(p, 1)
+                     })
                 self.current_state["chart_data"] = data_points
 
             except Exception as e:

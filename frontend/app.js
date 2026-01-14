@@ -1,4 +1,4 @@
-const { createApp, ref, onMounted, onBeforeUnmount } = Vue;
+const { createApp, ref, shallowRef, onMounted, onBeforeUnmount } = Vue;
 
 createApp({
     setup() {
@@ -13,7 +13,7 @@ createApp({
         const status = ref('active'); // active, away
         const awayRemaining = ref(0);
         const musicPlaying = ref(false);
-        const chartInstance = ref(null);
+        const chartInstance = shallowRef(null);
 
         let audioContext = null;
         let videoElement = null;
@@ -83,21 +83,22 @@ createApp({
         };
 
         const updateChart = (points) => {
-            // Points is array of {time, value}
-            
+            if (!chartInstance.value) return;
+
             const labels = points.map(p => p.time.toFixed(1));
-            const values = points.map(p => p.value);
+            const fatigueValues = points.map(p => p.value);
+            // In the backend, we might want to send historical predictions too. 
+            // For now, let's at least show the current prediction at the end or use what's sent.
+            const predValues = points.map(p => p.pred !== undefined ? p.pred : null);
 
             chartInstance.value.data.labels = labels;
-            chartInstance.value.data.datasets[0].data = values;
-           
-            // Prediction log (optional)
-            if (points.length > 0) {
-                // const lastPoint = points[points.length - 1];
-                // console.log("Received Data:", points.length, lastPoint);
+            chartInstance.value.data.datasets[0].data = fatigueValues;
+
+            if (points.some(p => p.pred !== undefined)) {
+                chartInstance.value.data.datasets[1].data = predValues;
             }
 
-            chartInstance.value.update(); 
+            chartInstance.value.update('none'); // Update without animation for performance
         };
 
         const initChart = () => {
