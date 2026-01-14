@@ -1,88 +1,83 @@
-# MFTF
+# MFTF (Fatigue Monitor System)
+
+MFTF (Multimodal Fatigue Tracking Framework) は、Webカメラによる顔認識とキーボード・マウスの操作量に基づいて、ユーザーの疲労度をリアルタイムに推定・可視化するシステムです。
+
+## 特徴
+- **リアルタイム疲労度モニタリング**: Webカメラ映像（顔の姿勢）と入力デバイスの活動量から疲労度を算出。
+- **グラフ可視化**: 疲労度の推移をグラフで表示。
+- **予測機能**: 直近の傾向から未来の疲労度を予測。
+- **休憩通知**: 疲労度が一定を超えると休憩を促します。
+- **Awayモード**: 離席時にモニタリングを一時停止するモード。
+
+## 技術スタック
+- **Backend**: Python (FastAPI), OpenCV, MediaPipe, Pynput
+- **Frontend**: HTML5, CSS3, Vue.js (CDN), Chart.js
+- **OS**: Linux / Windows (WSL2対応)
 
 ## フォルダ構成
+```text
 MFTF/
-│
-├── src/
-│   ├── main.py                # エントリーポイント
-│   ├── config/                # 設定ファイル類
-│   │   └── settings.py
-│   │
-│   ├── data/                  # 入出力データ管理
-│   │   ├── collector/         # 各種データ取得モジュール
-│   │   │   ├── keyboard_monitor.py
-│   │   │   ├── mouse_monitor.py
-│   │   │   └── webcam_monitor.py
-│   │   ├── preprocessor/      # データ整形
-│   │   │   ├── signal_filter.py
-│   │   │   └── feature_extractor.py
-│   │   └── storage/           # データ保存
-│   │       └── database.py
-│   │
-│   ├── model/                 # 機械学習モデル
-│   │   ├── fatigue_regressor.py
-│   │   └── trainer.py
-│   │
-│   ├── analysis/              # 可視化・評価
-│   │   ├── visualization.py
-│   │   └── metrics.py
-│   │
-│   ├── interface/             # ユーザーインタフェース
-│   │   ├── gui.py
-│   │   └── notifier.py        # 休憩促し通知など
-│   │
-│   └── utils/                 # 汎用関数
-│       ├── logger.py
-│       └── timer.py
-│
-├── models/                    # 学習済みモデル格納場所
-├── data/                      # 生データ保存用
-├── requirements.txt
-├── README.md
-└──.vscode                     # vscode設定
+├── backend/            # FastAPI バックエンドサーバー
+│   ├── main.py         # アプリケーションエントリーポイント
+│   └── ...
+├── frontend/           # フロントエンドリソース
+│   ├── index.html      # メインUI
+│   ├── app.js          # Vue.js アプリケーションロジック
+│   └── style.css       # スタイルシート
+├── resources/          # 音声ファイル等のリソース
+├── .env                # 環境設定ファイル
+├── requirements.txt    # 依存Pythonライブラリ
+└── README.md
+```
 
-## 使用ライブラリ例と目的
-| 機能              | ライブラリ                                 | 主な用途                    |
-| --------------- | ------------------------------------- | ----------------------- |
-| **キーボード/マウス監視** | `pynput`                              | 入力イベントの記録（クリック数・キータイプ数） |
-| **Webカメラ解析**    | `opencv-python`, `mediapipe`          | 顔検出・目の開閉状態・姿勢分析         |
-| **データ処理**       | `numpy`, `pandas`                     | 集計、前処理、特徴抽出             |
-| **機械学習**        | `scikit-learn`, `xgboost`             | 疲労度予測モデル（回帰）            |
-| **可視化**         | `matplotlib`, `seaborn`               | 分析・評価プロット               |
-| **通知・GUI**      | `tkinter` / `PyQt5` / `customtkinter` | 休憩促しやステータス表示            |
-| **ログ管理**        | `loguru` / `logging`                  | ログ・例外処理                 |
-| **構成管理**        | `pydantic` / `yaml`                   | 設定ファイル・モデルパラメータ管理       |
+## セットアップと実行
 
-## データフロー
-[Keyboard/Mouse] → ActivityCollector
-        ↓
-   [FeatureExtractor]（1分ごとに特徴量を生成）
-        ↓
-   [WebcamMonitor]（顔・目・頭部姿勢などを抽出）
-        ↓
-   [FatigueRegressor]（回帰モデルによる疲労度推定）
-        ↓
-   [Notifier]（休憩が必要ならGUIや通知を発信）
+### 1. 前提条件
+- Python 3.8以上
+- Webカメラが接続されていること
 
-## 疲労度モデル
+### 2. 環境構築
 
-# 動作手順
-・仮想環境がない場合は、仮想環境を作成する
->> conda create -n DevApp
+#### Linux / macOS の場合
+ターミナルで以下を実行します。
+```bash
+# 仮想環境の有効化
+source venv/bin/activate
 
-作成後、環境を有効化
->> conda activate DevApp
+# 依存ライブラリのインストール
+pip install -r requirements.txt
+```
 
-・必要なライブラリをインストールする
->> cd MFTF
->> pip install -r requirements.txt
+#### Windows の場合
+コマンドプロンプトまたはPowerShellで以下を実行します。
+```cmd
+:: 仮想環境の有効化
+venv\Scripts\activate
 
-・以下のコマンドを実行して動かしてみる
->> python -m src.main
+:: 依存ライブラリのインストール
+pip install -r requirements.txt
+```
+※ **注意**: `pynput` (キーボード監視ライブラリ) がウイルス対策ソフトに検知される場合があります。その場合は例外設定に追加してください。
 
-## 初回起動時に関する挙動
-初回起動時にモデルが存在せずにエラーとなる可能性がある。
-そのため、初回はアプリ起動後にデータを貯めてから以下のコードを実行し、モデルの作成を行う。
-`python -m src.train_initial_model`
-じれでsrc/fatigue_model.pklが作成される。
-その後再度実行を行うと、先ほど作成したモデルが使用されるはずである。
+### 3. 設定
+必要に応じて `.env` ファイルを編集してパラメータを調整してください。
+- `CAMERA_ID`: 使用するカメラのID (デフォルト: 0)
+- `FATIGUE_THRESHOLD`: アラートを出す疲労度の閾値 (0-100)
+
+### 4. アプリケーションの実行
+以下のコマンドでサーバーを起動します。
+
+```bash
+uvicorn backend.main:app --reload
+```
+
+### 5. 利用開始
+サーバー起動後、ブラウザで以下のURLにアクセスしてください。
+
+[http://localhost:8000](http://localhost:8000)
+
+※ 初回アクセス時にカメラの使用許可を求められますので、許可してください。
+
+## トラブルシューティング
+- **カメラが起動しない場合**: ブラウザのカメラ権限設定を確認してください。
+- **入力監視エラー**: Linux環境等で `pynput` の権限エラーが出る場合がありますが、アプリケーションの動作（Webインターフェース）には影響しないよう設計されています。

@@ -1,0 +1,303 @@
+:root {
+    --bg-color: #050507;
+    --card-bg: rgba(28, 28, 30, 0.6);
+    --border-color: rgba(255, 255, 255, 0.1);
+    --primary: #0A84FF;
+    --primary-glow: rgba(10, 132, 255, 0.4);
+    --accent: #BF5AF2;
+    --success: #30D158;
+    --danger: #FF453A;
+    --warning: #FF9F0A;
+    --text-main: #FFFFFF;
+    --text-muted: #8E8E93;
+    --radius: 16px;
+    --font-family: 'Outfit', sans-serif;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    font-family: var(--font-family);
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    overflow: hidden;
+}
+
+[v-cloak] { display: none; }
+
+.background-glow {
+    position: fixed;
+    top: -20%;
+    left: -20%;
+    width: 140%;
+    height: 140%;
+    background: radial-gradient(circle at 50% 50%, rgba(10, 132, 255, 0.08), transparent 70%);
+    z-index: -1;
+    pointer-events: none;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 40px;
+    border-bottom: 1px solid var(--border-color);
+    background: rgba(5, 5, 7, 0.8);
+    backdrop-filter: blur(10px);
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.logo h1 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: -0.02em;
+}
+
+.badge {
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    margin-left: 8px;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.status-indicator.active {
+    color: var(--success);
+}
+
+.dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: currentColor;
+    box-shadow: 0 0 10px currentColor;
+}
+
+main {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 24px;
+    padding: 30px 40px;
+    height: calc(100vh - 80px);
+    box-sizing: border-box;
+    max-width: 1600px;
+    margin: 0 auto;
+}
+
+.card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+.camera-card {
+    height: 100%;
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.card-header h2 {
+    font-size: 1rem;
+    font-weight: 500;
+    margin: 0;
+}
+
+.live-tag {
+    background-color: var(--danger);
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    animation: pulse 2s infinite;
+}
+
+.video-container {
+    flex: 1;
+    background: #000;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.video-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* Don't stretch */
+    transform: scaleX(-1); /* Mirror effect */
+}
+
+.placeholder {
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.loader {
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--text-muted);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 10px;
+}
+
+.right-column {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.kpi-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+.kpi-card {
+    align-items: center;
+    text-align: center;
+    padding: 24px;
+}
+
+.kpi-card h3 {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin: 0 0 10px 0;
+    font-weight: 400;
+}
+
+.kpi-card .value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.unit {
+    font-size: 1rem;
+    color: var(--text-muted);
+    font-weight: 400;
+    margin-left: 4px;
+}
+
+.chart-card {
+    flex: 2; /* Take up more space */
+}
+
+.chart-container {
+    flex: 1;
+    min-height: 200px;
+    position: relative;
+}
+
+.controls-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    padding: 16px;
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateY(-2px);
+}
+
+.btn-away { /* Gradient border effect or similar could be cool, sticking to simple */ }
+
+.btn-play {
+    background: var(--primary);
+    border: none;
+    box-shadow: 0 4px 20px rgba(10, 132, 255, 0.3);
+}
+.btn-play:hover {
+    background: #0071e3;
+    box-shadow: 0 4px 25px rgba(10, 132, 255, 0.4);
+}
+
+.btn-stop {
+    background: rgba(255, 69, 58, 0.2);
+    color: var(--danger);
+    border: 1px solid rgba(255, 69, 58, 0.3);
+}
+.btn-stop:hover {
+    background: rgba(255, 69, 58, 0.3);
+}
+
+.overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.8);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+.away-badge {
+    text-align: center;
+    background: var(--card-bg);
+    padding: 30px;
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
+}
+
+.away-badge button {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    margin-top: 15px;
+    cursor: pointer;
+}
+
+@keyframes spin { 100% { transform: rotate(360deg); } }
+@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+/* Text Colors based on fatigue */
+.text-normal { color: var(--success); }
+.text-warning { color: var(--warning); }
+.text-critical { color: var(--danger); text-shadow: 0 0 10px rgba(255, 69, 58, 0.5); }

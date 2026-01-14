@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fatigue Monitor AI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div id="app" v-cloak>
+        <div class="background-glow"></div>
+
+        <header>
+            <div class="logo">
+                <span class="icon">🧠</span>
+                <h1>Fatigue Monitor <span class="badge">AI</span></h1>
+            </div>
+            <div class="status-indicator" :class="{ active: socketConnected }">
+                <div class="dot"></div>
+                <span>{{ socketConnected ? 'Connected' : 'Disconnected' }}</span>
+            </div>
+        </header>
+
+        <main>
+            <!-- Left Column: Camera -->
+            <div class="card camera-card">
+                <div class="card-header">
+                    <h2>Live Feed</h2>
+                    <span class="live-tag">LIVE</span>
+                </div>
+                <div class="video-container">
+                    <!-- Local Video Preview (High Performance) -->
+                    <video id="webcamVideo" autoplay playsinline muted></video>
+                    <!-- Visual Guide Overlay (Optional, drawn by JS if needed) -->
+
+                    <div v-if="cameraError" class="placeholder error">
+                        <p>Camera Error: {{ cameraError }}</p>
+                    </div>
+
+                    <div v-if="!cameraReady && !cameraError" class="placeholder">
+                        <div class="loader"></div>
+                        <p>Waiting for camera permissions...</p>
+                    </div>
+
+                    <div v-if="status === 'away'" class="overlay">
+                        <div class="away-badge">
+                            <h3>Away Mode</h3>
+                            <p>Resuming in {{ formatTime(awayRemaining) }}</p>
+                            <button @click="resume">Resume Now</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Stats & Controls -->
+            <div class="right-column">
+                <!-- KPI Cards -->
+                <div class="kpi-grid">
+                    <div class="card kpi-card">
+                        <h3>Current Fatigue</h3>
+                        <div class="value" :class="getFatigueClass(fatigue)">
+                            {{ fatigue }}<span class="unit">%</span>
+                        </div>
+                    </div>
+                    <div class="card kpi-card">
+                        <h3>Predicted (+60s)</h3>
+                        <div class="value" :class="getFatigueClass(prediction)">
+                            {{ prediction }}<span class="unit">%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chart -->
+                <div class="card chart-card">
+                    <div class="card-header">
+                        <h2>Fatigue Trend</h2>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="fatigueChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="controls-grid">
+                    <button class="btn btn-away" @click="setAway">
+                        <span class="btn-icon">☕</span>
+                        Take a Break (5m)
+                    </button>
+
+                    <button class="btn" :class="musicPlaying ? 'btn-stop' : 'btn-play'" @click="toggleMusic">
+                        <span class="btn-icon">{{ musicPlaying ? '⏸' : '▶' }}</span>
+                        {{ musicPlaying ? 'Stop Music' : 'Play Music' }}
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <!-- Audio Elements -->
+        <audio id="bgMusic" src="/resources/videoplayback.mp4" loop></audio>
+        <audio id="alertSound"
+            src="data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU..."></audio>
+        <!-- Simplify: use standard beep or synthesis in JS -->
+
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+
+</html>
