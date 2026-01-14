@@ -9,3 +9,5 @@ pandas
 scikit-learn
 loguru
 python-dotenv
+sqlalchemy
+aiosqlite

@@ -121,15 +121,15 @@
                 <div class="history-summary">
                     <div class="summary-card">
                         <span class="label">Average Fatigue</span>
-                        <span class="value">42%</span>
+                        <span class="value">{{ stats.avg_fatigue }}%</span>
                     </div>
                     <div class="summary-card">
                         <span class="label">Total Alerts</span>
-                        <span class="value">5</span>
+                        <span class="value">{{ stats.total_alerts }}</span>
                     </div>
                     <div class="summary-card">
                         <span class="label">Work Time</span>
-                        <span class="value">12.5h</span>
+                        <span class="value">{{ stats.total_time }}h</span>
                     </div>
                 </div>
 
@@ -145,7 +145,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="session in dummyHistory" :key="session.id">
+                            <tr v-for="session in history" :key="session.id">
                                 <td>{{ session.timestamp }}</td>
                                 <td>{{ session.duration }}</td>
                                 <td>{{ session.peak }}%</td>

@@ -1,4 +1,4 @@
-const { createApp, ref, shallowRef, onMounted, onBeforeUnmount } = Vue;
+const { createApp, ref, shallowRef, watch, onMounted, onBeforeUnmount } = Vue;
 
 createApp({
     setup() {
@@ -7,6 +7,13 @@ createApp({
         // const frame = ref(""); // No longer receiving frame from backend for display
         const cameraReady = ref(false);
         const cameraError = ref(null);
+
+        const history = ref([]);
+        const stats = ref({
+            avg_fatigue: 0,
+            total_alerts: 0,
+            total_time: 0
+        });
 
         const fatigue = ref(0);
         const prediction = ref(0);
@@ -21,14 +28,17 @@ createApp({
         let captureCanvas = null;
         let captureInterval = null;
 
-        // History Mockup Data
-        const dummyHistory = ref([
-            { id: 1, timestamp: '2024-01-14 10:30', duration: '1h 20m', peak: 85 },
-            { id: 2, timestamp: '2024-01-13 14:15', duration: '2h 15m', peak: 35 },
-            { id: 3, timestamp: '2024-01-13 09:00', duration: '45m', peak: 60 },
-            { id: 4, timestamp: '2024-01-12 16:45', duration: '1h 10m', peak: 40 },
-            { id: 5, timestamp: '2024-01-12 11:30', duration: '3h 05m', peak: 92 }
-        ]);
+        // History Data (Removed Dummy)
+        const fetchHistory = async () => {
+            try {
+                const response = await fetch('/history');
+                const data = await response.json();
+                history.value = data.history;
+                stats.value = data.stats;
+            } catch (err) {
+                console.error("Failed to fetch history:", err);
+            }
+        };
 
         // Chart Data
         const chartData = {
@@ -244,6 +254,12 @@ createApp({
             }, 100);
         };
 
+        watch(currentView, (newView) => {
+            if (newView === 'history') {
+                fetchHistory();
+            }
+        });
+
         onMounted(() => {
             initChart();
             startCamera();
@@ -270,7 +286,8 @@ createApp({
             resume,
             formatTime,
             getFatigueClass,
-            dummyHistory,
+            history,
+            stats,
             getBadgeClass,
             getStatusLabel
         };

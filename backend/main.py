@@ -16,6 +16,10 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from sklearn.linear_model import LinearRegression
 from pynput import keyboard, mouse
+from datetime import datetime
+from sqlalchemy import Column, Integer, Float, String, DateTime, func, select, desc
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker, declarative_base
 
 # Load environment variables
 load_dotenv()
@@ -34,6 +38,29 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Database Setup
+db_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../db")
+os.makedirs(db_dir, exist_ok=True)
+DATABASE_URL = f"sqlite+aiosqlite:///{os.path.join(db_dir, 'fatigue_history.db')}"
+Base = declarative_base()
+
+class SessionRecord(Base):
+    __tablename__ = "sessions"
+    id = Column(Integer, primary_key=True)
+    start_time = Column(DateTime, default=datetime.now)
+    end_time = Column(DateTime)
+    avg_fatigue = Column(Float)
+    peak_fatigue = Column(Float)
+    alert_count = Column(Integer)
+    duration_seconds = Column(Integer)
+
+engine = create_async_engine(DATABASE_URL)
+AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+async def init_db():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
 # ==========================================
 # 1. INPUT MONITORING (Background Thread)
@@ -166,6 +193,13 @@ class FatigueService:
         self.pause_end_time = 0
         self.start_time = time.time()
         
+        # Session Metrics tracking
+        self.current_session_start = None
+        self.session_peak = 0.0
+        self.session_sum = 0.0
+        self.session_count = 0
+        self.session_alerts = 0
+        
         # State shared with frontend
         self.current_state = {
             "fatigue_current": 0,
@@ -231,13 +265,47 @@ class FatigueService:
         self.input_mon.stop()
         self.face_mon.release()
 
+    async def _save_session(self):
+        if self.current_session_start is None or self.session_count == 0:
+            return
+            
+        end_time = datetime.now()
+        duration = int((time.time() - self.session_unix_start))
+        avg = self.session_sum / self.session_count
+        
+        async with AsyncSessionLocal() as db:
+            record = SessionRecord(
+                start_time=self.current_session_start,
+                end_time=end_time,
+                avg_fatigue=round(avg, 1),
+                peak_fatigue=round(self.session_peak, 1),
+                alert_count=self.session_alerts,
+                duration_seconds=duration
+            )
+            db.add(record)
+            await db.commit()
+            logger.info(f"Session saved: {duration}s, peak {self.session_peak}")
+            
+        # Reset
+        self.current_session_start = None
+        self.session_peak = 0.0
+        self.session_sum = 0.0
+        self.session_count = 0
+        self.session_alerts = 0
+
     def set_away(self, duration=300):
+        if self.current_state["status"] == "active":
+             # End current session
+             asyncio.run_coroutine_threadsafe(self._save_session(), asyncio.get_event_loop())
         self.pause_end_time = time.time() + duration
     
     def resume(self):
         self.pause_end_time = 0
 
     def _loop(self):
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
         while self.is_running:
             try:
                 loop_start = time.time()
@@ -246,12 +314,25 @@ class FatigueService:
                 # Check Away Mode
                 remaining_pause = self.pause_end_time - loop_start
                 if remaining_pause > 0:
+                    if self.current_state["status"] == "active":
+                        # This shouldn't happen usually if set_away is called via method
+                        pass
                     self.current_state["status"] = "away"
                     self.current_state["away_remaining"] = int(remaining_pause)
                     self.current_state["alert"] = False
                     
                     time.sleep(0.1)
                     continue
+
+                if self.current_state["status"] == "away" or self.current_session_start is None:
+                    # Starting new session
+                    self.current_session_start = datetime.now()
+                    self.session_unix_start = time.time()
+                    self.session_peak = 0.0
+                    self.session_sum = 0.0
+                    self.session_count = 0
+                    self.session_alerts = 0
+                    logger.info("New session started")
 
                 self.current_state["status"] = "active"
                 self.current_state["away_remaining"] = 0
@@ -271,12 +352,15 @@ class FatigueService:
                     pitch, _ = self.face_mon.process_image(img_to_process)
                 
                 if pitch is None:
-                    # If no frame received recently, assume no face? 
-                    # For now, strict: No frame = No face = Penalty
                     pitch = -20 # Penalty for no face / no frame
                 
                 target = self.calculate_current_fatigue(keys, clicks, pitch)
                 self.smooth_fatigue = (self.smooth_fatigue * (1.0 - self.smoothing_factor)) + (target * self.smoothing_factor)
+                
+                # Update Session Metrics
+                self.session_count += 1
+                self.session_sum += self.smooth_fatigue
+                self.session_peak = max(self.session_peak, self.smooth_fatigue)
                 
                 self.timestamps.append(elapsed_time)
                 self.fatigue_history.append(self.smooth_fatigue)
@@ -292,6 +376,7 @@ class FatigueService:
                     if loop_start - self.last_alert_time > self.alert_cooldown:
                         self.current_state["alert"] = True
                         self.last_alert_time = loop_start
+                        self.session_alerts += 1
 
                 # Update State
                 self.current_state["fatigue_current"] = round(self.smooth_fatigue, 1)
@@ -321,12 +406,46 @@ class FatigueService:
 service = FatigueService()
 
 @app.on_event("startup")
-def startup_event():
+async def startup_event():
+    await init_db()
     service.start()
 
 @app.on_event("shutdown")
-def shutdown_event():
+async def shutdown_event():
+    await service._save_session()
     service.stop()
+
+@app.get("/history")
+async def get_history():
+    async with AsyncSessionLocal() as db:
+        # Fetch sessions
+        stmt = select(SessionRecord).order_by(desc(SessionRecord.start_time)).limit(50)
+        result = await db.execute(stmt)
+        sessions = result.scalars().all()
+        
+        history_list = []
+        for s in sessions:
+            history_list.append({
+                "id": s.id,
+                "timestamp": s.start_time.strftime("%Y-%m-%d %H:%M") if s.start_time else "",
+                "duration": f"{s.duration_seconds//60}m {s.duration_seconds%60}s" if s.duration_seconds else "0s",
+                "peak": s.peak_fatigue,
+                "avg": s.avg_fatigue,
+                "alerts": s.alert_count
+            })
+        
+        # Calculate overall stats
+        avg_res = await db.execute(select(func.avg(SessionRecord.avg_fatigue)))
+        alert_res = await db.execute(select(func.sum(SessionRecord.alert_count)))
+        time_res = await db.execute(select(func.sum(SessionRecord.duration_seconds)))
+        
+        stats = {
+            "avg_fatigue": round(avg_res.scalar() or 0, 1),
+            "total_alerts": int(alert_res.scalar() or 0),
+            "total_time": round((time_res.scalar() or 0) / 3600, 1)
+        }
+        
+        return {"history": history_list, "stats": stats}
 
 # Mount Static Files
 base_dir = os.path.dirname(os.path.abspath(__file__))
