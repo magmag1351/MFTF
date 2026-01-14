@@ -189,6 +189,7 @@ class FatigueService:
 
         self.last_alert_time = 0
         self.alert_cooldown = float(os.getenv('ALERT_COOLDOWN', 3.0))
+        self.fatigue_threshold = float(os.getenv('FATIGUE_THRESHOLD', 90))
 
         self.pause_end_time = 0
         self.start_time = time.time()
@@ -371,8 +372,7 @@ class FatigueService:
                 
                 # Check Alert
                 self.current_state["alert"] = False
-                fatigue_threshold = float(os.getenv('FATIGUE_THRESHOLD', 90))
-                if self.smooth_fatigue >= fatigue_threshold:
+                if self.smooth_fatigue >= self.fatigue_threshold:
                     if loop_start - self.last_alert_time > self.alert_cooldown:
                         self.current_state["alert"] = True
                         self.last_alert_time = loop_start
@@ -447,6 +447,13 @@ async def get_history():
         
         return {"history": history_list, "stats": stats}
 
+@app.delete("/history")
+async def clear_history():
+    async with AsyncSessionLocal() as db:
+        await db.execute(Base.metadata.tables['sessions'].delete())
+        await db.commit()
+    return {"status": "success", "message": "History cleared"}
+
 # Mount Static Files
 base_dir = os.path.dirname(os.path.abspath(__file__))
 # Frontend
@@ -481,6 +488,10 @@ async def websocket_endpoint(websocket: WebSocket):
                         service.resume()
                     elif cmd.get("type") == "frame":
                         service.update_frame(cmd.get("data"))
+                    elif cmd.get("type") == "update_settings":
+                        if "threshold" in cmd:
+                            service.fatigue_threshold = float(cmd["threshold"])
+                            logger.info(f"Threshold updated to {service.fatigue_threshold}")
                 except asyncio.TimeoutError:
                     pass
 

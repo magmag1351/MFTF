@@ -15,6 +15,30 @@ createApp({
             total_time: 0
         });
 
+        // Settings State
+        const settings = ref({
+            fatigueThreshold: localStorage.getItem('fatigueThreshold') || 90,
+            enablePredictiveAlerts: localStorage.getItem('enablePredictiveAlerts') !== 'false',
+            alertVolume: localStorage.getItem('alertVolume') || 80,
+            alertSound: localStorage.getItem('alertSound') || 'default'
+        });
+
+        const saveSettings = () => {
+            localStorage.setItem('fatigueThreshold', settings.value.fatigueThreshold);
+            localStorage.setItem('enablePredictiveAlerts', settings.value.enablePredictiveAlerts);
+            localStorage.setItem('alertVolume', settings.value.alertVolume);
+            localStorage.setItem('alertSound', settings.value.alertSound);
+
+            // Notify backend if necessary (e.g. threshold)
+            if (socketConnected.value) {
+                socket.value.send(JSON.stringify({
+                    type: 'update_settings',
+                    threshold: settings.value.fatigueThreshold
+                }));
+            }
+            alert("Settings saved successfully!");
+        };
+
         const fatigue = ref(0);
         const prediction = ref(0);
         const currentView = ref('monitor'); // monitor, history, settings
@@ -40,7 +64,25 @@ createApp({
             }
         };
 
-        // Chart Data
+        const clearHistory = async () => {
+            if (!confirm("Are you sure you want to permanently delete all history?")) return;
+            try {
+                await fetch('/history', { method: 'DELETE' });
+                await fetchHistory();
+                alert("History cleared.");
+            } catch (err) {
+                console.error("Failed to clear history:", err);
+            }
+        };
+
+        const updateAccentColor = (color) => {
+            settings.value.accentColor = color;
+            document.documentElement.style.setProperty('--primary', color);
+            // Derive glow from color
+            const glow = color === '#64D2FF' ? 'rgba(100, 210, 255, 0.4)' :
+                color === '#BF5AF2' ? 'rgba(191, 90, 242, 0.4)' : 'rgba(48, 209, 88, 0.4)';
+            document.documentElement.style.setProperty('--primary-glow', glow);
+        };
         const chartData = {
             labels: [],
             datasets: [
@@ -168,6 +210,7 @@ createApp({
 
         const playAlert = () => {
             const audio = document.getElementById('alertSound');
+            audio.volume = settings.value.alertVolume / 100;
             audio.play().catch(e => console.error("Alert play failed", e));
         };
 
@@ -261,6 +304,10 @@ createApp({
         });
 
         onMounted(() => {
+            // Apply loaded accent color
+            if (settings.value.accentColor) {
+                updateAccentColor(settings.value.accentColor);
+            }
             initChart();
             startCamera();
             connectWebSocket();
@@ -288,6 +335,10 @@ createApp({
             getFatigueClass,
             history,
             stats,
+            settings,
+            saveSettings,
+            clearHistory,
+            updateAccentColor,
             getBadgeClass,
             getStatusLabel
         };

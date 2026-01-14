@@ -161,15 +161,95 @@
             </div>
         </main>
 
-        <main v-show="currentView === 'settings'" class="centered-view">
-            <div class="card full-width">
+        <main v-show="currentView === 'settings'">
+            <div class="settings-container">
                 <div class="card-header">
                     <h2>Settings</h2>
                 </div>
-                <div class="placeholder-content">
-                    <span class="large-icon">⚙️</span>
-                    <h3>Preferences Coming Soon</h3>
-                    <p>Customize thresholds, alert sounds, and display preferences.</p>
+
+                <div class="settings-grid">
+                    <!-- Monitoring Settings -->
+                    <div class="settings-card">
+                        <h3>Monitoring</h3>
+                        <div class="setting-item">
+                            <div class="setting-label">
+                                <span>Fatigue Threshold</span>
+                                <span class="setting-value">{{ settings.fatigueThreshold }}%</span>
+                            </div>
+                            <input type="range" min="50" max="100" v-model="settings.fatigueThreshold">
+                        </div>
+                        <div class="setting-item">
+                            <div class="setting-label">
+                                <span>Predictive Alerts</span>
+                                <label class="switch">
+                                    <input type="checkbox" v-model="settings.enablePredictiveAlerts">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Audio Settings -->
+                    <div class="settings-card">
+                        <h3>Audio</h3>
+                        <div class="setting-item">
+                            <div class="setting-label">
+                                <span>Alert Volume</span>
+                                <span class="setting-value">{{ settings.alertVolume }}%</span>
+                            </div>
+                            <input type="range" min="0" max="100" v-model="settings.alertVolume">
+                        </div>
+                        <div class="setting-item">
+                            <div class="setting-label">
+                                <span>Test Alert Sound</span>
+                                <button class="btn btn-stop" style="padding: 8px 16px; font-size: 0.8rem;"
+                                    @click="playAlert">
+                                    Play Test
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Data Management -->
+                    <div class="settings-card">
+                        <h3>Data Management</h3>
+                        <div class="setting-item">
+                            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">
+                                Permanently delete all recorded fatigue sessions from the database.
+                            </p>
+                            <button class="btn-danger-outline" @click="clearHistory">
+                                🗑 Clear Session History
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Appearance -->
+                    <div class="settings-card">
+                        <h3>Appearance</h3>
+                        <div class="setting-item">
+                            <div class="setting-label">
+                                <span>Accent Color</span>
+                            </div>
+                            <div style="display: flex; gap: 12px; margin-top: 10px;">
+                                <div @click="updateAccentColor('#64D2FF')"
+                                    style="width: 24px; height: 24px; border-radius: 50%; background: #64D2FF; cursor: pointer;"
+                                    :style="{ border: settings.accentColor === '#64D2FF' ? '2px solid white' : 'none' }">
+                                </div>
+                                <div @click="updateAccentColor('#BF5AF2')"
+                                    style="width: 24px; height: 24px; border-radius: 50%; background: #BF5AF2; cursor: pointer;"
+                                    :style="{ border: settings.accentColor === '#BF5AF2' ? '2px solid white' : 'none' }">
+                                </div>
+                                <div @click="updateAccentColor('#30D158')"
+                                    style="width: 24px; height: 24px; border-radius: 50%; background: #30D158; cursor: pointer;"
+                                    :style="{ border: settings.accentColor === '#30D158' ? '2px solid white' : 'none' }">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="save-section">
+                        <button class="btn-save" @click="saveSettings">Save All Changes</button>
+                    </div>
                 </div>
             </div>
         </main>
